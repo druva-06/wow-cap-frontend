@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -72,8 +72,17 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
   })
 
   const getCurrentCategory = () => {
-    const searchParams = JSON.parse(localStorage.getItem("search_parameters") || "{}")
-    if (searchParams.vertical) {
+    // Safe guard: only access window/localStorage on the client
+    if (typeof window === "undefined") return "abroad"
+
+    let searchParams: any = {}
+    try {
+      searchParams = JSON.parse(localStorage.getItem("search_parameters") || "{}")
+    } catch (e) {
+      searchParams = {}
+    }
+
+    if (searchParams && searchParams.vertical) {
       if (searchParams.vertical === "study-india" || searchParams.vertical === "india") {
         return "india"
       }
@@ -85,39 +94,40 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       }
     }
 
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search)
-      const vertical = urlParams.get("vertical")
-      if (vertical) {
-        if (vertical === "study-india" || vertical === "india") {
-          return "india"
-        }
-        if (vertical === "study-online" || vertical === "online") {
-          return "online"
-        }
-        if (vertical === "study-abroad" || vertical === "abroad") {
-          return "abroad"
-        }
+    const urlParams = new URLSearchParams(window.location.search)
+    const vertical = urlParams.get("vertical")
+    if (vertical) {
+      if (vertical === "study-india" || vertical === "india") {
+        return "india"
+      }
+      if (vertical === "study-online" || vertical === "online") {
+        return "online"
+      }
+      if (vertical === "study-abroad" || vertical === "abroad") {
+        return "abroad"
       }
     }
 
-    if (typeof window !== "undefined") {
-      const path = window.location.pathname
-      if (path.includes("/study/india") || path.includes("vertical=india")) {
-        return "india"
-      }
-      if (path.includes("/study/online") || path.includes("vertical=online")) {
-        return "online"
-      }
-      if (path.includes("/study/abroad") || path.includes("vertical=abroad")) {
-        return "abroad"
-      }
+    const path = window.location.pathname
+    if (path.includes("/study/india") || path.includes("vertical=india")) {
+      return "india"
+    }
+    if (path.includes("/study/online") || path.includes("vertical=online")) {
+      return "online"
+    }
+    if (path.includes("/study/abroad") || path.includes("vertical=abroad")) {
+      return "abroad"
     }
 
     return "abroad"
   }
 
-  const currentCategory = getCurrentCategory()
+  const [currentCategory, setCurrentCategory] = useState<"india" | "online" | "abroad">("abroad")
+
+  useEffect(() => {
+    setCurrentCategory(getCurrentCategory())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleInputChange = (field: string, value: any) => {
     setProfileData((prev) => ({ ...prev, [field]: value }))
@@ -157,10 +167,10 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       hasAcademicGap: profileData.hasAcademicGap || false,
       gapDetails: profileData.hasAcademicGap
         ? {
-            startDate: profileData.gapStartDate,
-            endDate: profileData.gapEndDate,
-            reason: profileData.gapReason,
-          }
+          startDate: profileData.gapStartDate,
+          endDate: profileData.gapEndDate,
+          reason: profileData.gapReason,
+        }
         : undefined,
       backlogCount: Number.parseInt(profileData.backlogCount || "0"),
       testStatus: profileData.testStatus || "",
@@ -824,45 +834,45 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
                 {(profileData.testType === "IELTS" ||
                   profileData.testType === "TOEFL" ||
                   profileData.testType === "PTE") && (
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <Label className="text-sm font-medium text-purple-700 mb-1 block">Listening</Label>
-                      <Input
-                        placeholder="7.0"
-                        value={profileData.testListening || ""}
-                        onChange={(e) => handleInputChange("testListening", e.target.value)}
-                        className="h-9 bg-white border-purple-300"
-                      />
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-sm font-medium text-purple-700 mb-1 block">Listening</Label>
+                        <Input
+                          placeholder="7.0"
+                          value={profileData.testListening || ""}
+                          onChange={(e) => handleInputChange("testListening", e.target.value)}
+                          className="h-9 bg-white border-purple-300"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-purple-700 mb-1 block">Reading</Label>
+                        <Input
+                          placeholder="7.5"
+                          value={profileData.testReading || ""}
+                          onChange={(e) => handleInputChange("testReading", e.target.value)}
+                          className="h-9 bg-white border-purple-300"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-purple-700 mb-1 block">Writing</Label>
+                        <Input
+                          placeholder="6.5"
+                          value={profileData.testWriting || ""}
+                          onChange={(e) => handleInputChange("testWriting", e.target.value)}
+                          className="h-9 bg-white border-purple-300"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-purple-700 mb-1 block">Speaking</Label>
+                        <Input
+                          placeholder="7.0"
+                          value={profileData.testSpeaking || ""}
+                          onChange={(e) => handleInputChange("testSpeaking", e.target.value)}
+                          className="h-9 bg-white border-purple-300"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-sm font-medium text-purple-700 mb-1 block">Reading</Label>
-                      <Input
-                        placeholder="7.5"
-                        value={profileData.testReading || ""}
-                        onChange={(e) => handleInputChange("testReading", e.target.value)}
-                        className="h-9 bg-white border-purple-300"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-purple-700 mb-1 block">Writing</Label>
-                      <Input
-                        placeholder="6.5"
-                        value={profileData.testWriting || ""}
-                        onChange={(e) => handleInputChange("testWriting", e.target.value)}
-                        className="h-9 bg-white border-purple-300"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-purple-700 mb-1 block">Speaking</Label>
-                      <Input
-                        placeholder="7.0"
-                        value={profileData.testSpeaking || ""}
-                        onChange={(e) => handleInputChange("testSpeaking", e.target.value)}
-                        className="h-9 bg-white border-purple-300"
-                      />
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
           </div>

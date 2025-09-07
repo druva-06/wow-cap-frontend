@@ -13,6 +13,9 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight, Phone, MessageSquare } from "lucid
 import { toast } from "@/hooks/use-toast"
 import { ProfileCompletionModal } from "@/components/modals/profile-completion-modal"
 import type { UnifiedUserProfile } from "@/types/user"
+import { login as loginApi } from "@/lib/api/client"
+import { setToken, setRefreshToken } from "@/lib/auth"
+import type { LoginRequest } from "@/lib/api/types"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -179,93 +182,60 @@ export default function LoginPage() {
       return
     }
 
-    setLoading(true)
+    // Email/password login via API
+    if (authMethod === "email") {
+      setLoading(true)
+      try {
+        if (!formData.email || !formData.password) {
+          toast({ title: "Validation Error", description: "Please fill in all required fields", variant: "destructive" })
+          return
+        }
 
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+        const payload: LoginRequest = { email: formData.email, password: formData.password }
+        const res = await loginApi(payload)
 
-      if (!formData.email || !formData.password) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
-          variant: "destructive",
-        })
-        return
+        if (res?.response?.access_token) {
+          setToken(res.response.access_token)
+          if (res.response.refresh_token) setRefreshToken(res.response.refresh_token)
+
+          // save minimal user info
+          const user = res.response.user
+          const mapped: UnifiedUserProfile = {
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            phone: user.phone_number || "",
+            dateOfBirth: "",
+            nationality: "",
+            currentLocation: "",
+            lastEducation: "",
+            lastEducationPercentage: "",
+            lastEducationYear: "",
+            lastEducationInstitution: "",
+            hasTestScores: false,
+            testScores: [],
+            profileCompleted: false,
+            profileCompletion: 25,
+            profileStage: "basic",
+            studentId: `WC${user.user_id}`,
+            loginTime: new Date().toISOString(),
+            signupTime: new Date().toISOString(),
+          }
+
+          setUserData(mapped)
+          localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+
+          toast({ title: "Login Successful", description: res.message })
+          router.push("/dashboard")
+        } else {
+          toast({ title: "Login Failed", description: res.message || "Invalid credentials", variant: "destructive" })
+        }
+      } catch (err: any) {
+        toast({ title: "Login Error", description: err?.response?.data?.message || err.message || "Failed to login", variant: "destructive" })
+      } finally {
+        setLoading(false)
       }
 
-      // Create user data based on email
-      let newUserData = {
-        email: formData.email,
-        name: "John Doe",
-        phone: "",
-        loginTime: new Date().toISOString(),
-        focusArea: "Study Abroad",
-        dateOfBirth: "",
-        nationality: "",
-        currentLocation: "",
-        lastEducation: "",
-        lastEducationPercentage: "",
-        lastEducationYear: "",
-        lastEducationInstitution: "",
-        hasTestScores: false,
-        testScores: [],
-        profileCompleted: false,
-        profileCompletion: 25,
-        profileStage: "basic" as const,
-        studentId: `WC${Date.now()}`,
-        signupTime: new Date().toISOString(),
-      }
-
-      // Customize user data based on demo credentials
-      if (formData.email === "john.doe@example.com") {
-        newUserData = {
-          ...newUserData,
-          name: "John Doe",
-          focusArea: "Study Abroad",
-        }
-      } else if (formData.email === "priya.sharma@example.com") {
-        newUserData = {
-          ...newUserData,
-          name: "Priya Sharma",
-          focusArea: "Study India",
-        }
-      } else if (formData.email === "alex.chen@example.com") {
-        newUserData = {
-          ...newUserData,
-          name: "Alex Chen",
-          focusArea: "Test Prep",
-        }
-      } else {
-        // For any other email, extract name from email
-        const nameFromEmail = formData.email
-          .split("@")[0]
-          .replace(/[._]/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase())
-        newUserData = {
-          ...newUserData,
-          name: nameFromEmail,
-          focusArea: "Study Abroad",
-        }
-      }
-
-      setUserData(newUserData as UnifiedUserProfile)
-
-      toast({
-        title: "Login Successful! 🎉",
-        description: `Welcome back, ${newUserData.name}!`,
-      })
-
-      // Show profile completion modal instead of direct redirect
-      setShowProfileModal(true)
-    } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: "Please check your credentials and try again",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      return
     }
   }
 
@@ -303,7 +273,7 @@ export default function LoginPage() {
         <Card className="border-0 shadow-xl">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl">Student Login</CardTitle>
-            <div className="flex justify-center gap-2 mt-4">
+            {/* <div className="flex justify-center gap-2 mt-4">
               <Button
                 type="button"
                 variant={authMethod === "email" ? "default" : "outline"}
@@ -334,7 +304,7 @@ export default function LoginPage() {
                 <MessageSquare className="w-3 h-3 mr-1" />
                 Google
               </Button>
-            </div>
+            </div> */}
           </CardHeader>
           <CardContent>
             {authMethod === "google" ? (
