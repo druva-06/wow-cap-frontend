@@ -2,6 +2,7 @@
 
 import axios from "axios"
 import { toast } from "@/hooks/use-toast"
+import { getToken, clearTokens } from "@/lib/auth"
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"
 
@@ -15,7 +16,7 @@ const instance = axios.create({
 // Attach token from localStorage if present
 instance.interceptors.request.use((config) => {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("wowcap_access_token") : null
+    const token = typeof window !== "undefined" ? getToken() : null
     if (token && config.headers) config.headers["Authorization"] = `Bearer ${token}`
   } catch (e) {
     // ignore
@@ -31,8 +32,9 @@ instance.interceptors.response.use(
 
     if (status === 401) {
       try {
-        localStorage.removeItem("wowcap_access_token")
-        localStorage.removeItem("wowcap_refresh_token")
+        clearTokens()
+        // notify other components
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
       } catch (e) {}
       toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
     } else {

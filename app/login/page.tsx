@@ -194,9 +194,26 @@ export default function LoginPage() {
         const payload: LoginRequest = { email: formData.email, password: formData.password }
         const res = await loginApi(payload)
 
-        if (res?.response?.access_token) {
-          setToken(res.response.access_token)
-          if (res.response.refresh_token) setRefreshToken(res.response.refresh_token)
+        if (res?.success && res?.response?.access_token) {
+          // Enforce role-based access: this is the Student portal, only allow users with role 'student'
+          const backendRole = res.response.user?.role || ""
+          if (backendRole && backendRole.toLowerCase() !== "student") {
+            toast({ title: "Unauthorized", description: "Your account is not allowed to login to the Student portal.", variant: "destructive" })
+            return
+          }
+          // store tokens according to rememberMe
+          const remember = formData.rememberMe
+          // use helper that writes to localStorage or sessionStorage
+          try {
+            // save tokens to chosen storage
+            const { saveToken, saveRefreshToken } = await import("@/lib/auth")
+            saveToken(res.response.access_token, remember)
+            if (res.response.refresh_token) saveRefreshToken(res.response.refresh_token, remember)
+          } catch (e) {
+            // fallback to localStorage
+            setToken(res.response.access_token)
+            if (res.response.refresh_token) setRefreshToken(res.response.refresh_token)
+          }
 
           // save minimal user info
           const user = res.response.user
@@ -222,12 +239,27 @@ export default function LoginPage() {
           }
 
           setUserData(mapped)
-          localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+          try {
+            if (formData.rememberMe) {
+              localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+            } else {
+              sessionStorage.setItem("wowcap_user", JSON.stringify(mapped))
+            }
+          } catch (e) {
+            localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+          }
+          // Notify other components in the same window to refresh auth state
+          try {
+            window.dispatchEvent(new Event("authStateChanged"))
+          } catch (e) {
+            // ignore during SSR or if window is not available
+          }
 
           toast({ title: "Login Successful", description: res.message })
-          router.push("/dashboard")
+          router.push("/")
         } else {
-          toast({ title: "Login Failed", description: res.message || "Invalid credentials", variant: "destructive" })
+          const msg = res?.message || res?.response?.message || "Invalid credentials"
+          toast({ title: "Login Failed", description: msg, variant: "destructive" })
         }
       } catch (err: any) {
         toast({ title: "Login Error", description: err?.response?.data?.message || err.message || "Failed to login", variant: "destructive" })
@@ -241,14 +273,14 @@ export default function LoginPage() {
 
   const handleProfileComplete = (completeProfileData: UnifiedUserProfile) => {
     setShowProfileModal(false)
-    // Redirect to dashboard after profile completion
-    router.push("/dashboard")
+    // Redirect to home after profile completion
+    router.push("/")
   }
 
   const handleProfileSkip = () => {
     setShowProfileModal(false)
-    // Redirect to dashboard even if profile is skipped
-    router.push("/dashboard")
+    // Redirect to home even if profile is skipped
+    router.push("/")
   }
 
   return (

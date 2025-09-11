@@ -74,10 +74,10 @@ function SearchResultsContent() {
 
   useEffect(() => {
     console.log("[v0] SearchResults: Auth check starting")
-    const user = localStorage.getItem("wowcap_user")
-    if (user) {
+    const userString = (localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user"))
+    if (userString) {
       try {
-        const parsedUser = JSON.parse(user) as UnifiedUserProfile
+        const parsedUser = JSON.parse(userString) as UnifiedUserProfile
         setIsLoggedIn(true)
         setUserData(parsedUser)
         setAuthLoading(false)
@@ -85,6 +85,7 @@ function SearchResultsContent() {
       } catch (error) {
         console.error("[v0] SearchResults: Error parsing user data", error)
         localStorage.removeItem("wowcap_user")
+        sessionStorage.removeItem("wowcap_user")
         setAuthLoading(false)
         setShowLoginModal(true)
       }
@@ -601,11 +602,10 @@ function SearchResultsContent() {
                           <div className="absolute top-2 left-2">
                             <button
                               onClick={() => toggleComparison(course.id)}
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors comparison-checkbox ${
-                                comparisonList.includes(course.id)
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors comparison-checkbox ${comparisonList.includes(course.id)
                                   ? "bg-blue-600 border-blue-600 text-white"
                                   : "bg-white border-gray-300 hover:border-blue-400"
-                              }`}
+                                }`}
                             >
                               {comparisonList.includes(course.id) && <Check className="w-3 h-3" />}
                             </button>

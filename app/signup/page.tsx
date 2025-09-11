@@ -10,15 +10,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, User, CheckCircle, Upload, FileText, Clock, Shield, Zap } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 export default function SignupPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
+    username: "",
     email: "",
     phone: "",
+    countryCode: "+91",
     password: "",
     confirmPassword: "",
   })
@@ -28,8 +32,16 @@ export default function SignupPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required"
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required"
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required"
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Username is required"
     }
 
     if (!formData.email.trim()) {
@@ -64,26 +76,42 @@ export default function SignupPage() {
     }
 
     setIsLoading(true)
+    try {
+      // Build request body as required by backend
+      // Ensure phone number includes country code
+      const normalizedPhone = formData.phone.startsWith("+")
+        ? formData.phone
+        : `${formData.countryCode}${formData.phone}`
 
-    // Demo signup - simulate account creation
-    setTimeout(() => {
-      // Store user session
-      localStorage.setItem(
-        "wowcap_user",
-        JSON.stringify({
-          email: formData.email,
-          name: formData.fullName,
-          phone: formData.phone,
-          signupTime: new Date().toISOString(),
-          documentVaultSetup: false, // Track if user has set up document vault
-        }),
-      )
+      const payload = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        phone_number: normalizedPhone,
+        role: "STUDENT",
+      }
 
-      window.dispatchEvent(new Event("authStateChanged"))
+      const { signup } = await import("@/lib/api/client")
+      const res = await signup(payload)
 
+      // Backend expected to return success message or created user
+      if (res && (res.success || res.id || res.user)) {
+        // Redirect user to email confirmation page (backend sends OTP automatically)
+        toast({ title: "Account Created", description: res?.message || "Please check your email for the verification code." })
+        setIsLoading(false)
+        router.push(`/signup/confirm?email=${encodeURIComponent(formData.email)}`)
+      } else {
+        const msg = res?.message || "Failed to create account"
+        toast({ title: "Signup Failed", description: msg, variant: "destructive" })
+        setIsLoading(false)
+      }
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || "Signup failed"
+      toast({ title: "Signup Error", description: message, variant: "destructive" })
       setIsLoading(false)
-      setCurrentStep(2) // Move to document vault encouragement
-    }, 1000)
+    }
   }
 
   const handleSkipDocuments = () => {
@@ -106,7 +134,7 @@ export default function SignupPage() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-2">
                 Account Created Successfully! 🎉
               </h1>
-              <p className="text-gray-600">Welcome to WowCap, {formData.fullName}!</p>
+              <p className="text-gray-600">Welcome to WowCap, {`${formData.firstName} ${formData.lastName}`}!</p>
             </div>
 
             {/* Document Vault Encouragement */}
@@ -212,17 +240,45 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSignup} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="First name"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
+                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.firstName ? "border-red-500" : ""}`}
+                />
+                {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Last name"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
+                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.lastName ? "border-red-500" : ""}`}
+                />
+                {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="fullName"
+                id="username"
                 type="text"
-                placeholder="Enter your full name"
-                value={formData.fullName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
-                className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.fullName ? "border-red-500" : ""}`}
+                placeholder="Choose a username"
+                value={formData.username}
+                onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
+                className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.username ? "border-red-500" : ""}`}
               />
-              {errors.fullName && <p className="text-red-500 text-sm">{errors.fullName}</p>}
+              {errors.username && <p className="text-red-500 text-sm">{errors.username}</p>}
             </div>
 
             <div className="space-y-2">
@@ -240,14 +296,27 @@ export default function SignupPage() {
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={formData.phone}
-                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${errors.phone ? "border-red-500" : ""}`}
-              />
+              <div className="flex">
+                <select
+                  value={formData.countryCode}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, countryCode: e.target.value }))}
+                  className="px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-white"
+                >
+                  <option value="+91">+91</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                  <option value="+61">+61</option>
+                  <option value="+91">IN</option>
+                </select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={formData.phone}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                  className={`rounded-r-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 flex-1 ${errors.phone ? "border-red-500" : ""}`}
+                />
+              </div>
               {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
             </div>
 

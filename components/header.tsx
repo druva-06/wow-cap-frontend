@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -44,15 +44,31 @@ export function Header() {
   const [userName, setUserName] = useState("")
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const router = useRouter()
+  const profileRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const checkAuthState = () => {
-      const userData = localStorage.getItem("wowcap_user")
-      if (userData) {
-        setIsLoggedIn(true)
-        const user = JSON.parse(userData)
-        setUserName(user.name || "User")
-      } else {
+      try {
+        // Prefer wowcap_user from localStorage, fall back to sessionStorage
+        const userData = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+        if (userData) {
+          setIsLoggedIn(true)
+          const user = JSON.parse(userData)
+          setUserName(user.name || "User")
+          return
+        }
+
+        // fallback: check for access token presence
+        const token = localStorage.getItem("wowcap_access_token") || sessionStorage.getItem("wowcap_access_token")
+        if (token) {
+          setIsLoggedIn(true)
+          setUserName("User")
+          return
+        }
+
+        setIsLoggedIn(false)
+        setUserName("")
+      } catch (e) {
         setIsLoggedIn(false)
         setUserName("")
       }
@@ -82,11 +98,46 @@ export function Header() {
     }
   }, [])
 
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!profileRef.current) return
+      const target = e.target as Node
+      if (!profileRef.current.contains(target)) {
+        setIsProfileDropdownOpen(false)
+      }
+    }
+
+    if (isProfileDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isProfileDropdownOpen])
+
   const handleLogout = () => {
-    localStorage.removeItem("wowcap_user")
-    localStorage.removeItem("wowcap_documents")
-    localStorage.removeItem("wowcap_applications")
-    localStorage.removeItem("wowcap_tasks")
+    try {
+      localStorage.removeItem("wowcap_user")
+      localStorage.removeItem("wowcap_documents")
+      localStorage.removeItem("wowcap_applications")
+      localStorage.removeItem("wowcap_tasks")
+      sessionStorage.removeItem("wowcap_user")
+    } catch (e) { }
+    // clear tokens
+    try {
+      localStorage.removeItem("wowcap_access_token")
+      localStorage.removeItem("wowcap_refresh_token")
+      sessionStorage.removeItem("wowcap_access_token")
+      sessionStorage.removeItem("wowcap_refresh_token")
+    } catch (e) { }
+
+    // notify other components
+    try {
+      window.dispatchEvent(new Event("authStateChanged"))
+    } catch (e) { }
+
     setIsLoggedIn(false)
     setUserName("")
     router.push("/")
@@ -600,7 +651,7 @@ export function Header() {
               /* Enhanced profile dropdown with notifications and dashboard moved inside */
               <div className="flex items-center space-x-4">
                 {/* Profile Dropdown with all user functions */}
-                <div className="relative">
+                <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                     className="flex items-center space-x-2 text-gray-700 hover:text-slate-900 transition-all duration-300 px-4 py-3 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50 font-semibold text-sm"

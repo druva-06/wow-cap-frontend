@@ -213,4 +213,13 @@ export default function CollegeLoginPage() {
                     className="w-full border-purple-300 text-purple-600 hover:bg-purple-50 bg-transparent"
                   >
                     Use Demo College Credentials
-                  </Button>\
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -5,13 +5,14 @@ import "./globals.css"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import AIChatbot from "@/components/ai-chatbot"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "WowCap - Your Educational Journey Partner",
   description: "Comprehensive guidance for study abroad, education loans, and career development",
-    generator: 'v0.app'
+  generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -26,6 +27,7 @@ export default function RootLayout({
         <main>{children}</main>
         <Footer />
         <AIChatbot />
+        <Toaster />
       </body>
     </html>
   )
