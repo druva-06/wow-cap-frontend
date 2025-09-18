@@ -194,9 +194,50 @@ function SearchResultsContent() {
     let sourceData: any[] = []
 
     try {
+      // If study-abroad, prefer backend results saved in localStorage
       if (vertical === "study-abroad") {
-        sourceData = studyAbroadUniversities || []
-        console.log("[v0] SearchResults: Using studyAbroadUniversities, count:", sourceData.length)
+        try {
+          const backend = localStorage.getItem("wowcap_search_results")
+          if (backend) {
+            const parsed = JSON.parse(backend)
+            if (parsed && Array.isArray(parsed.data)) {
+              sourceData = parsed.data.map((item: any) => ({
+                // normalize to previous sample-data university shape
+                id: String(item.collegeId || item.collegeCourseId || "unknown"),
+                name: item.collegeName || "Unknown College",
+                city: item.campusName || "",
+                country: item.country || "",
+                logo: item.collegeImage || null,
+                ranking: item.universityRanking || 999,
+                rating: item.rating || 4.5,
+                reviewCount: item.reviewCount || 0,
+                courses: [
+                  {
+                    id: item.courseId || item.collegeCourseId || "unknown",
+                    name: item.courseName || "Unknown Course",
+                    fee: item.tuitionFee || 0,
+                    duration: item.duration || "2 years",
+                    intake: item.intakeMonths || item.intakeYear || "",
+                    courseRaw: item,
+                  },
+                ],
+              }))
+              console.log('[v0] SearchResults: Using backend search results count:', sourceData.length)
+            }
+          }
+        } catch (e) {
+          console.error('[v0] SearchResults: Error parsing backend search results', e)
+        }
+      }
+
+      if (vertical === "study-abroad") {
+        // If backend returned no results, do NOT fall back to mock/sample data.
+        // Leave `sourceData` empty so the UI can show a clear "No results" state.
+        if (!sourceData || sourceData.length === 0) {
+          console.log("[v0] SearchResults: No backend results for study-abroad")
+        } else {
+          console.log("[v0] SearchResults: Using backend search results count:", sourceData.length)
+        }
       } else if (vertical === "study-india") {
         sourceData = studyIndiaUniversities || []
         console.log("[v0] SearchResults: Using studyIndiaUniversities, count:", sourceData.length)
@@ -603,8 +644,8 @@ function SearchResultsContent() {
                             <button
                               onClick={() => toggleComparison(course.id)}
                               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors comparison-checkbox ${comparisonList.includes(course.id)
-                                  ? "bg-blue-600 border-blue-600 text-white"
-                                  : "bg-white border-gray-300 hover:border-blue-400"
+                                ? "bg-blue-600 border-blue-600 text-white"
+                                : "bg-white border-gray-300 hover:border-blue-400"
                                 }`}
                             >
                               {comparisonList.includes(course.id) && <Check className="w-3 h-3" />}
@@ -834,12 +875,45 @@ function SearchResultsContent() {
                 )}
               </>
             ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <h3 className="text-lg font-semibold">No Courses Found</h3>
-                  <p className="text-gray-500 mt-2">Try adjusting your search or filters.</p>
-                </CardContent>
-              </Card>
+              <div className="w-full">
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <h3 className="text-lg font-semibold">No Courses Found</h3>
+                    <p className="text-gray-500 mt-2">We couldn't find any courses matching your search.</p>
+
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <button
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                        onClick={() => {
+                          // Clear filters and search box
+                          setFilters(initialFilters)
+                          setSearchInput("")
+                          setSearchQuery("")
+                          setCurrentPage(1)
+                        }}
+                      >
+                        Clear Filters
+                      </button>
+
+                      <button
+                        className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded"
+                        onClick={() => handleAdvancedFiltersClick()}
+                      >
+                        Refine Filters
+                      </button>
+
+                      {!isLoggedIn && (
+                        <button
+                          className="text-blue-600 underline px-4 py-2 bg-transparent"
+                          onClick={() => setShowLoginModal(true)}
+                        >
+                          Login to see personalized results
+                        </button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </div>
 

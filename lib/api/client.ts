@@ -69,3 +69,13 @@ export async function confirmForgotPassword(email: string, confirmationCode: str
     throw err
   }
 }
+
+export async function searchCollegeCourses(payload: any): Promise<any> {
+  try {
+    const res = await axios.post(`/api/college-course/collegeCourses`, payload)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}

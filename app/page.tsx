@@ -216,30 +216,39 @@ export default function HomePage() {
             label: "Country",
             options: [
               { value: "all", label: "All Countries" },
-              { value: "usa", label: "United States" },
-              { value: "uk", label: "United Kingdom" },
-              { value: "canada", label: "Canada" },
-              { value: "australia", label: "Australia" },
-              { value: "germany", label: "Germany" },
-              { value: "singapore", label: "Singapore" },
+              { value: "United States of America", label: "United States of America" },
+              { value: "United Kingdom", label: "United Kingdom" },
+              { value: "Canada", label: "Canada" },
+              { value: "Australia", label: "Australia" },
+              { value: "Germany", label: "Germany" },
+              { value: "Singapore", label: "Singapore" },
             ],
           },
           secondFilter: {
             label: "Level",
             options: [
               { value: "all", label: "All Levels" },
-              { value: "undergraduate", label: "Undergraduate" },
-              { value: "postgraduate", label: "Postgraduate" },
-              { value: "phd", label: "PhD" },
+              { value: "MASTER", label: "MASTER" },
+              { value: "POSTGRADUATE", label: "POSTGRADUATE" },
+              { value: "PHD", label: "PHD" },
             ],
           },
           thirdFilter: {
             label: "Intake",
             options: [
               { value: "all", label: "All Intakes" },
-              { value: "fall", label: "Fall 2024" },
-              { value: "spring", label: "Spring 2025" },
-              { value: "summer", label: "Summer 2025" },
+              { value: "Jan", label: "January" },
+              { value: "Feb", label: "February" },
+              { value: "Mar", label: "March" },
+              { value: "Apr", label: "April" },
+              { value: "May", label: "May" },
+              { value: "Jun", label: "June" },
+              { value: "Jul", label: "July" },
+              { value: "Aug", label: "August" },
+              { value: "Sep", label: "September" },
+              { value: "Oct", label: "October" },
+              { value: "Nov", label: "November" },
+              { value: "Dec", label: "December" },
             ],
           },
         }
@@ -368,14 +377,13 @@ export default function HomePage() {
     return (
       <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mt-4">
         <div
-          className={`grid grid-cols-1 gap-3 ${
-            filterOptions.firstFilter && filterOptions.secondFilter && filterOptions.thirdFilter
-              ? "md:grid-cols-3"
-              : (filterOptions.firstFilter && filterOptions.secondFilter) ||
-                  (filterOptions.secondFilter && filterOptions.thirdFilter)
-                ? "md:grid-cols-2"
-                : "md:grid-cols-1"
-          }`}
+          className={`grid grid-cols-1 gap-3 ${filterOptions.firstFilter && filterOptions.secondFilter && filterOptions.thirdFilter
+            ? "md:grid-cols-3"
+            : (filterOptions.firstFilter && filterOptions.secondFilter) ||
+              (filterOptions.secondFilter && filterOptions.thirdFilter)
+              ? "md:grid-cols-2"
+              : "md:grid-cols-1"
+            }`}
         >
           {filterOptions.firstFilter && (
             <div>
@@ -470,11 +478,10 @@ export default function HomePage() {
                   <button
                     key={vertical.id}
                     onClick={() => setActiveVertical(vertical.id)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-                      isActive
-                        ? "bg-white text-blue-600 shadow-lg transform scale-105"
-                        : "bg-white/20 text-white hover:bg-white/30 hover:scale-105"
-                    }`}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-300 ${isActive
+                      ? "bg-white text-blue-600 shadow-lg transform scale-105"
+                      : "bg-white/20 text-white hover:bg-white/30 hover:scale-105"
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                     {vertical.label}
@@ -494,7 +501,7 @@ export default function HomePage() {
                   className="w-full px-6 py-4 pr-32 rounded-full border-2 border-white/30 bg-white/10 backdrop-blur-md text-white placeholder-white/70 focus:outline-none focus:border-white/50 text-lg"
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (activeVertical === "study-online") {
                       const params = new URLSearchParams()
                       params.set("vertical", "study-online")
@@ -513,6 +520,91 @@ export default function HomePage() {
                         if (selectedCountry && selectedCountry !== "all") params.set("country", selectedCountry)
                         if (selectedLevel && selectedLevel !== "all") params.set("level", selectedLevel)
                         if (selectedIntake && selectedIntake !== "all") params.set("intake", selectedIntake)
+
+                        // For study-abroad, call backend search (requires auth)
+                        try {
+                          const userString = (typeof window !== 'undefined') ? (localStorage.getItem('wowcap_user') || sessionStorage.getItem('wowcap_user')) : null
+                          const hasUser = !!userString
+                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('wowcap_access_token') || sessionStorage.getItem('wowcap_access_token')) : null
+                          if (!hasUser && !token) {
+                            // not logged in -> redirect to login page
+                            router.push('/login')
+                            return
+                          }
+
+                          // Build payload according to API contract
+                          const mapLevelToApi = (lvl: string) => {
+                            if (!lvl) return null
+                            const v = lvl.toLowerCase()
+                            if (v === "undergraduate" || v === "ug" || v === "bachelor") return "UNDERGRADUATE"
+                            if (v === "postgraduate" || v === "pg" || v === "master" || v === "post grad") return "MASTER"
+                            if (v === "phd" || v === "doctorate") return "PHD"
+                            return null
+                          }
+
+                          const mapCountryToApi = (c: string) => {
+                            if (!c) return null
+                            const v = c.toLowerCase()
+                            // Map known dropdown values to backend-expected full country names
+                            if (v === "usa" || v === "us" || v === "united states" || v === "united states of america")
+                              return "UNITED STATES OF AMERICA"
+                            if (v === "uk" || v === "united kingdom" || v === "great britain") return "UNITED KINGDOM"
+                            if (v === "canada") return "CANADA"
+                            if (v === "australia") return "AUSTRALIA"
+                            if (v === "germany") return "GERMANY"
+                            if (v === "singapore") return "SINGAPORE"
+                            // Fallback: return uppercased label
+                            return c.toUpperCase()
+                          }
+
+                          const mapIntakeToMonths = (intake: string) => {
+                            if (!intake) return []
+                            const v = intake.toLowerCase()
+                            // Map common intake labels to representative month codes
+                            if (v === "fall" || v === "autumn" || v.includes("sep") || v.includes("sept")) return ["SEP"]
+                            if (v === "spring" || v.includes("jan") || v.includes("feb")) return ["JAN"]
+                            if (v === "summer" || v.includes("may") || v.includes("jun")) return ["MAY"]
+                            // If intake is already a month code like 'JAN', return it normalized
+                            if (/^[A-Za-z]{3}$/.test(intake)) return [intake.toUpperCase()]
+                            return []
+                          }
+
+                          const graduation_levels = selectedLevel && selectedLevel !== "all" ? [mapLevelToApi(selectedLevel)].filter(Boolean) : []
+                          const countries = selectedCountry && selectedCountry !== "all" ? [mapCountryToApi(selectedCountry)].filter(Boolean) : []
+                          const intakeMonths = selectedIntake && selectedIntake !== "all" ? mapIntakeToMonths(selectedIntake) : []
+
+                          const payload = {
+                            pagination: { page: 1, size: 40 },
+                            filters: {
+                              courses: [],
+                              departments: [],
+                              graduation_levels,
+                              countries,
+                              duration: { minMonths: 0, maxMonths: 48 },
+                              intakeMonths,
+                            },
+                            search: { term: searchQuery || "" },
+                          }
+
+                          // Lazy import the API client to avoid SSR issues
+                          const { searchCollegeCourses } = await import('@/lib/api/client')
+                          const res = await searchCollegeCourses(payload)
+
+                          if (res && res.response && Array.isArray(res.response.data)) {
+                            try {
+                              localStorage.setItem('wowcap_search_results', JSON.stringify(res.response))
+                            } catch (e) {
+                              // fallback: ignore storage errors
+                            }
+                          }
+
+                          // navigate to search results page with params
+                          router.push(`/search-results?${params.toString()}`)
+                        } catch (err) {
+                          // on error, redirect to login as a safe fallback
+                          router.push('/login')
+                        }
+                        return
                       } else if (activeVertical === "study-india") {
                         if (selectedCountry && selectedCountry !== "all") params.set("city", selectedCountry)
                         if (selectedLevel && selectedLevel !== "all") params.set("level", selectedLevel)

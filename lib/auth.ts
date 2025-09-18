@@ -46,3 +46,11 @@ export function saveRefreshToken(token: string, remember = false) {
     }
   } catch (e) {}
 }
+
+export function getRefreshToken(): string | null {
+  try {
+    return localStorage.getItem("wowcap_refresh_token") || sessionStorage.getItem("wowcap_refresh_token")
+  } catch (e) {
+    return null
+  }
+}
