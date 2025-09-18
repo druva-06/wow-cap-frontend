@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import type React from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
@@ -67,6 +67,8 @@ function SearchResultsContent() {
   const [resultsPerPage] = useState(5)
   const [filters, setFilters] = useState<FilterState>(initialFilters)
   const [loading, setLoading] = useState(false)
+  const [apiCourses, setApiCourses] = useState<any[] | null>(null)
+  const [apiPagination, setApiPagination] = useState<{ currentPage: number; pageSize: number; totalPages: number; totalItems: number } | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
   const [comparisonList, setComparisonList] = useState<string[]>([])
   const [pendingApplication, setPendingApplication] = useState<{ universityId: string; courseId: string } | null>(null)
@@ -124,6 +126,82 @@ function SearchResultsContent() {
     localStorage.setItem("wowcap_comparison", JSON.stringify(comparisonList))
   }, [comparisonList])
 
+  // Helpers: normalize levels, countries and duration
+  const mapLevelsToApi = (levels: string[]) => {
+    if (!levels || levels.length === 0) return []
+    return levels
+      .map((l) => (l || "").toString().trim().toLowerCase())
+      .map((l) => {
+        if (["master", "masters", "m", "pg", "postgraduate", "post-graduate", "post graduate"].includes(l)) return "MASTER"
+        if (["undergraduate", "ug", "bachelor", "bachelors", "bachelors degree"].includes(l)) return "UNDERGRADUATE"
+        if (["phd", "doctorate", "doctor", "doctoral"].includes(l)) return "PHD"
+        // default to uppercase of value
+        return l.toUpperCase()
+      })
+  }
+
+  const mapCountriesToApi = (countries: string[]) => {
+    if (!countries || countries.length === 0) return []
+    return countries.map((c) => {
+      const v = (c || "").toString().trim().toLowerCase()
+      if (["us", "usa", "united states", "united states of america", "united state"].includes(v)) return "United States of America"
+      if (["uk", "gb", "great britain", "united kingdom", "england"].includes(v)) return "United Kingdom"
+      // otherwise return title-cased input to be safer
+      return c
+    })
+  }
+
+  const mapDurationToMonths = (duration: [number, number]) => {
+    const minY = Math.max(0, Math.floor(duration?.[0] ?? 0))
+    const maxY = Math.max(minY, Math.floor(duration?.[1] ?? minY))
+
+    // If single-year selection (exact), follow mapping provided
+    if (minY === maxY) {
+      switch (minY) {
+        case 1:
+          return { minMonths: 0, maxMonths: 12 }
+        case 2:
+          return { minMonths: 13, maxMonths: 24 }
+        case 3:
+          return { minMonths: 25, maxMonths: 36 }
+        default:
+          // 4 or more
+          return { minMonths: 37, maxMonths: 240 }
+      }
+    }
+
+    // Range selection: convert years to months with sensible bounds
+    const minMonths = minY <= 1 ? 0 : minY * 12
+    const maxMonths = maxY >= 4 ? 240 : maxY * 12
+    return { minMonths, maxMonths }
+  }
+
+  const debounceRef = useRef<number | null>(null)
+
+  // Fetch server results when vertical is study-abroad, on mount and when filters/searchQuery changes
+  useEffect(() => {
+    if (vertical !== "study-abroad") return
+    if (!isLoggedIn) {
+      setShowLoginModal(true)
+      return
+    }
+
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current)
+    }
+
+    // debounce filter changes by 350ms
+    debounceRef.current = window.setTimeout(() => {
+      const pageToFetch = Math.max(1, currentPage)
+      void fetchCoursesFromApi(pageToFetch)
+    }, 350)
+
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vertical, searchQuery, filters, isLoggedIn])
+
   const handleLoginComplete = (newUserData: UnifiedUserProfile) => {
     setIsLoggedIn(true)
     setUserData(newUserData)
@@ -166,6 +244,72 @@ function SearchResultsContent() {
   const handleFilterChange = (newFilters: FilterState) => {
     setFilters(newFilters)
     setCurrentPage(1)
+  }
+
+  // Build and send search request to server for study-abroad vertical
+  const fetchCoursesFromApi = async (page: number) => {
+    setLoading(true)
+    try {
+      const { searchCollegeCourses } = await import("@/lib/api/client")
+
+      // Normalize filters for API
+      const apiLevels = mapLevelsToApi(filters.levels || [])
+      const apiCountries = mapCountriesToApi(filters.countries || [])
+      const apiDuration = mapDurationToMonths(filters.duration || [0, 0])
+
+      // Map internal filters to API payload shape
+      const payload = {
+        pagination: {
+          page: Math.max(1, page),
+          size: resultsPerPage,
+        },
+        filters: {
+          courses: [],
+          departments: [],
+          graduation_levels: apiLevels,
+          countries: apiCountries,
+          duration: apiDuration,
+          intakeMonths: [],
+        },
+        search: {
+          term: searchQuery || "",
+        },
+      }
+
+      const res = await searchCollegeCourses(payload)
+
+      // Normalize possible response shapes
+      const list = res?.data || res?.response?.data || res?.response || res || { data: [] }
+      const pagination = res?.pagination || res?.response?.pagination || null
+
+      // If API returned top-level object containing data and pagination
+      const dataArray = Array.isArray(list) ? list : list.data || []
+
+      setApiCourses(dataArray)
+      try {
+        const storeObj = { data: dataArray, pagination }
+        localStorage.setItem("wowcap_search_results", JSON.stringify(storeObj))
+      } catch (e) {
+        // ignore storage errors
+      }
+
+      if (pagination) {
+        setApiPagination({
+          currentPage: pagination.currentPage || page,
+          pageSize: pagination.pageSize || resultsPerPage,
+          totalPages: pagination.totalPages || Math.max(1, Math.ceil((pagination.totalItems || dataArray.length) / resultsPerPage)),
+          totalItems: pagination.totalItems || dataArray.length,
+        })
+      } else {
+        setApiPagination({ currentPage: page, pageSize: resultsPerPage, totalPages: Math.max(1, Math.ceil(dataArray.length / resultsPerPage)), totalItems: dataArray.length })
+      }
+    } catch (err) {
+      console.error("[v0] SearchResults: Error fetching courses from API", err)
+      setApiCourses([])
+      setApiPagination({ currentPage: page, pageSize: resultsPerPage, totalPages: 1, totalItems: 0 })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleAdvancedFiltersClick = () => {
@@ -382,22 +526,57 @@ function SearchResultsContent() {
     }
   }
 
-  const allCourses = getAllCourses()
-  const filteredCourses = applyFilters(allCourses)
+  // If apiCourses is provided (study-abroad), use server-driven pagination and counts.
+  const allCourses = apiCourses ? apiCourses.map((item: any) => {
+    // map server item into UI course shape similar to previous mapping
+    return {
+      id: `${item.collegeId || item.collegeCourseId || 'unknown'}-${item.courseId || item.collegeCourseId || 'unknown'}`,
+      courseId: item.courseId || item.collegeCourseId || 'unknown',
+      universityId: String(item.collegeId || item.collegeCourseId || 'unknown'),
+      courseName: item.courseName || 'Unknown Course',
+      universityName: item.collegeName || 'Unknown University',
+      location: `${item.campusName || ''}, ${item.country || ''}`,
+      country: item.country || 'Unknown Country',
+      city: item.campusName || item.city || 'Unknown City',
+      fee: Number(item.tuitionFee) || 0,
+      duration: item.duration || '2 years',
+      level: item.graduationLevel || 'Graduate',
+      intake: Array.isArray(item.intakeMonths) ? item.intakeMonths.join(', ') : item.intakeMonths || item.intakeYear || '',
+      universityLogo: item.collegeImage || `/placeholder.svg?height=40&width=80&text=${encodeURIComponent(item.collegeName || 'University')}`,
+      universityRanking: item.universityRanking || 999,
+      rating: item.rating || 4.5,
+      reviewCount: item.reviewCount || 0,
+      scholarshipAvailable: item.scholarshipAvailable || false,
+      applicationDeadline: item.applicationDeadline || 'Rolling admissions',
+      accreditations: item.accreditation ? (Array.isArray(item.accreditation) ? item.accreditation : [item.accreditation]) : ['Accredited'],
+      campusImage: item.campusImage || item.collegeImage || `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(item.collegeName || 'University')}`,
+      courseImage: item.courseImage || `/placeholder.svg?height=300&width=400&text=${encodeURIComponent(item.courseName || 'Course')}`,
+      courseAge: item.startDate ? `Updated ${new Date(item.startDate).getFullYear()}` : 'Recently Updated',
+      lastUpdated: item.startDate || '2024-01-01',
+    }
+  }) : getAllCourses()
+
+  const filteredCourses = apiCourses ? allCourses : applyFilters(allCourses)
   const sortedCourses = sortCourses(filteredCourses)
 
-  const totalPages = Math.max(1, Math.ceil(sortedCourses.length / resultsPerPage))
-  const startIndex = Math.max(0, (currentPage - 1) * resultsPerPage)
-  const endIndex = Math.min(startIndex + resultsPerPage, sortedCourses.length)
-  const paginatedCourses = sortedCourses.slice(startIndex, endIndex)
+  const totalPages = apiPagination ? Math.max(1, apiPagination.totalPages) : Math.max(1, Math.ceil(sortedCourses.length / resultsPerPage))
+  const startIndex = apiPagination ? Math.max(0, (apiPagination.currentPage - 1) * (apiPagination.pageSize || resultsPerPage)) : Math.max(0, (currentPage - 1) * resultsPerPage)
+  const endIndex = apiPagination ? Math.min(startIndex + (apiPagination.pageSize || resultsPerPage), apiPagination.totalItems || sortedCourses.length) : Math.min(startIndex + resultsPerPage, sortedCourses.length)
+  const paginatedCourses = apiPagination ? sortedCourses : sortedCourses.slice(startIndex, endIndex)
 
   const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      }, 100)
+    // If we have API pagination info, clamp to available pages
+    const maxPage = apiPagination?.totalPages || totalPages
+    const clamped = Math.max(1, Math.min(page, maxPage))
+    if (clamped === currentPage) return
+    setCurrentPage(clamped)
+    // Fetch the requested page from server if study-abroad
+    if (vertical === "study-abroad") {
+      void fetchCoursesFromApi(clamped)
     }
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }, 100)
   }
 
   const handleSearch = () => {
@@ -800,75 +979,76 @@ function SearchResultsContent() {
                 {totalPages > 1 && (
                   <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 p-4 bg-white rounded-lg border border-gray-200 pagination-container">
                     <div className="text-sm text-gray-600">
-                      Page {currentPage} of {totalPages} ({sortedCourses.length} total courses)
+                      Page {apiPagination ? apiPagination.currentPage : currentPage} of {totalPages} ({apiPagination ? apiPagination.totalItems : sortedCourses.length} total courses)
                     </div>
 
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => handlePageChange(1)}
-                        disabled={currentPage === 1}
-                        size="sm"
-                        className="hidden sm:inline-flex"
-                      >
-                        First
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
+                        onClick={() => handlePageChange((apiPagination ? apiPagination.currentPage : currentPage) - 1)}
+                        disabled={(apiPagination ? apiPagination.currentPage : currentPage) === 1}
                         size="sm"
                       >
                         Previous
                       </Button>
 
-                      <div className="flex gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum: number
-                          if (totalPages <= 5) {
-                            pageNum = i + 1
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const displayCurrent = apiPagination ? apiPagination.currentPage : currentPage
+                          const displayTotal = totalPages
+                          const pages: Array<number | string> = []
+
+                          if (displayTotal <= 7) {
+                            for (let p = 1; p <= displayTotal; p++) pages.push(p)
                           } else {
-                            pageNum = currentPage - 2 + i
+                            pages.push(1)
+                            pages.push(2)
+
+                            if (displayCurrent > 4) pages.push("...")
+
+                            const start = Math.max(3, displayCurrent - 1)
+                            const end = Math.min(displayTotal - 2, displayCurrent + 1)
+                            for (let p = start; p <= end; p++) {
+                              if (p > 2 && p < displayTotal - 1) pages.push(p)
+                            }
+
+                            if (displayCurrent < displayTotal - 3) pages.push("...")
+
+                            pages.push(displayTotal)
                           }
 
-                          if (pageNum < 1 || pageNum > totalPages) return null
+                          return pages.map((pageNum, idx) => {
+                            if (pageNum === "...") {
+                              return (
+                                <span key={`el-${idx}`} className="px-2 text-sm text-gray-500">
+                                  …
+                                </span>
+                              )
+                            }
 
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={currentPage === pageNum ? "default" : "outline"}
-                              onClick={() => handlePageChange(pageNum)}
-                              size="sm"
-                              className="w-8 h-8 p-0"
-                            >
-                              {pageNum}
-                            </Button>
-                          )
-                        })}
+                            const num = Number(pageNum)
+                            return (
+                              <Button
+                                key={num}
+                                variant={(apiPagination ? apiPagination.currentPage : currentPage) === num ? "default" : "outline"}
+                                onClick={() => handlePageChange(num)}
+                                size="sm"
+                                className="w-8 h-8 p-0"
+                              >
+                                {num}
+                              </Button>
+                            )
+                          })
+                        })()}
                       </div>
 
                       <Button
                         variant="outline"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
+                        onClick={() => handlePageChange((apiPagination ? apiPagination.currentPage : currentPage) + 1)}
+                        disabled={(apiPagination ? apiPagination.currentPage : currentPage) === totalPages}
                         size="sm"
                       >
                         Next
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => handlePageChange(totalPages)}
-                        disabled={currentPage === totalPages}
-                        size="sm"
-                        className="hidden sm:inline-flex"
-                      >
-                        Last
                       </Button>
                     </div>
                   </div>
