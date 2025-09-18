@@ -15,6 +15,7 @@ import {
   Zap,
   Brain,
   X,
+  Loader,
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { useRouter } from "next/navigation"
@@ -37,6 +38,7 @@ export default function HomePage() {
   const [appointmentNote, setAppointmentNote] = useState("")
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userData, setUserData] = useState<UnifiedUserProfile | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
   const router = useRouter()
 
   // Filter states
@@ -445,6 +447,31 @@ export default function HomePage() {
 
   return (
     <>
+      {isSearching && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white/95 rounded-2xl p-8 w-[90%] max-w-xl text-center shadow-2xl">
+            <div className="flex items-center justify-center mb-4">
+              <Loader className="w-12 h-12 animate-spin text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-2">Searching universities & courses...</h3>
+            <p className="text-gray-600 mb-4">This uses our intelligent search to find the best matches for you. Please wait a moment.</p>
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="p-3 bg-blue-50 rounded">
+                <div className="text-sm font-medium text-blue-700">Ranked Matches</div>
+                <div className="text-xs text-gray-500">Prioritizing fit & ranking</div>
+              </div>
+              <div className="p-3 bg-green-50 rounded">
+                <div className="text-sm font-medium text-green-700">Scholarships</div>
+                <div className="text-xs text-gray-500">Found if available</div>
+              </div>
+              <div className="p-3 bg-yellow-50 rounded">
+                <div className="text-sm font-medium text-yellow-700">Intakes</div>
+                <div className="text-xs text-gray-500">Matching next available</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
       <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 overflow-hidden">
         {/* Background Elements */}
@@ -502,6 +529,7 @@ export default function HomePage() {
                 />
                 <button
                   onClick={async () => {
+                    setIsSearching(true)
                     if (activeVertical === "study-online") {
                       const params = new URLSearchParams()
                       params.set("vertical", "study-online")
@@ -574,7 +602,7 @@ export default function HomePage() {
                           const intakeMonths = selectedIntake && selectedIntake !== "all" ? mapIntakeToMonths(selectedIntake) : []
 
                           const payload = {
-                            pagination: { page: 1, size: 40 },
+                            pagination: { page: 1, size: 5 },
                             filters: {
                               courses: [],
                               departments: [],
@@ -603,6 +631,8 @@ export default function HomePage() {
                         } catch (err) {
                           // on error, redirect to login as a safe fallback
                           router.push('/login')
+                        } finally {
+                          setIsSearching(false)
                         }
                         return
                       } else if (activeVertical === "study-india") {
@@ -615,6 +645,7 @@ export default function HomePage() {
                       }
 
                       router.push(`/search-results?${params.toString()}`)
+                      setIsSearching(false)
                     }
                   }}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors duration-300 flex items-center gap-2 text-sm font-medium"
