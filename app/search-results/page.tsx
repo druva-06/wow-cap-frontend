@@ -446,7 +446,8 @@ function SearchResultsContent() {
             if (parsed && Array.isArray(parsed.data)) {
               sourceData = parsed.data.map((item: any) => ({
                 // normalize to previous sample-data university shape
-                id: String(item.collegeId || item.collegeCourseId || "unknown"),
+                id: String(item.collegeId || "unknown"),
+                collegeCourseId: item.collegeCourseId || "unknown",
                 name: item.collegeName || "Unknown College",
                 city: item.campusName || "",
                 country: item.country || "",
@@ -515,6 +516,7 @@ function SearchResultsContent() {
 
             return {
               id: `${uni.id || "unknown"}-${course.id || "unknown"}`,
+              collegeCourseId: course.collegeCourseId || "unknown",
               courseId: course.id || "unknown",
               universityId: uni.id || "unknown",
               courseName: course.name || "Unknown Course",
@@ -630,7 +632,8 @@ function SearchResultsContent() {
     // map server item into UI course shape similar to previous mapping
     return {
       id: `${item.collegeId || item.collegeCourseId || 'unknown'}-${item.courseId || item.collegeCourseId || 'unknown'}`,
-      courseId: item.courseId || item.collegeCourseId || 'unknown',
+      courseId: item.courseId || 'unknown',
+      collegeCourseId: item.collegeCourseId || 'unknown',
       universityId: String(item.collegeId || item.collegeCourseId || 'unknown'),
       courseName: item.courseName || 'Unknown Course',
       universityName: item.collegeName || 'Unknown University',
@@ -971,7 +974,7 @@ function SearchResultsContent() {
                                 href={
                                   vertical === "study-india" || course.country === "India"
                                     ? `/college/${course.universityId}/${createSlug(course.courseName)}`
-                                    : `/universities/${course.universityId}/courses/${course.courseId}`
+                                    : `/universities/${course.universityId}/courses/${course.collegeCourseId}`
                                 }
                               >
                                 <h2 className="text-base font-bold text-gray-900 hover:text-blue-700 hover:underline cursor-pointer mb-1 leading-tight">

@@ -32,11 +32,13 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { studyAbroadUniversities, studyIndiaColleges } from "@/lib/sample-data"
+import { useEffect } from "react"
+import { getCollegeCourseDetail } from "@/lib/api/client"
 
 export default function CourseDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const courseSlug = params.courseSlug as string
+  const courseSlug = (params.courseSlug ?? params.courseId) as string
   const [activeTab, setActiveTab] = useState("overview")
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showCostCalculator, setShowCostCalculator] = useState(false)
@@ -51,14 +53,16 @@ export default function CourseDetailPage() {
   const allUniversities = [...studyAbroadUniversities, ...studyIndiaColleges]
   let university: any = null
   let course: any = null
+  const [fetchedUniversity, setFetchedUniversity] = useState<any>(null)
+  const [fetchedCourse, setFetchedCourse] = useState<any>(null)
   let type = "abroad"
 
   // Try to find course by matching params
   if (params.universityId && params.courseId) {
-    university = allUniversities.find((u) => u.id === params.universityId)
+    university = allUniversities.find((u) => String(u.id) === String(params.universityId))
     if (university) {
-      course = university.courses?.find((c: any) => c.id === params.courseId)
-      type = studyAbroadUniversities.some((u) => u.id === university.id) ? "abroad" : "india"
+      course = university.courses?.find((c: any) => String(c.id) === String(params.courseId) || String(c.slug) === String(params.courseId))
+      type = studyAbroadUniversities.some((u) => String(u.id) === String(university.id)) ? "abroad" : "india"
     }
   } else {
     // Fallback to original courseSlug logic
@@ -75,6 +79,64 @@ export default function CourseDetailPage() {
       }
     }
   }
+  // Fetch detail from API regardless of sample-data lookup so page can render API data
+  useEffect(() => {
+    let mounted = true
+    const fetchDetail = async () => {
+      try {
+        const id = params.courseId || params.courseSlug || params.course
+        if (!id) return
+        const resp = await getCollegeCourseDetail(id)
+        const data = resp?.response
+        if (!data) return
+
+        const mappedUniversity: any = { ...(university || {}) }
+        if (data.college) {
+          mappedUniversity.name = data.college.name || mappedUniversity.name
+          mappedUniversity.logo = data.college.collegeLogo || mappedUniversity.logo
+          mappedUniversity.location = data.college.campusName || mappedUniversity.location || data.college.country
+          mappedUniversity.country = data.college.country || mappedUniversity.country
+          mappedUniversity.establishedYear = data.college.establishedYear || mappedUniversity.establishedYear
+          mappedUniversity.description = data.college.description || mappedUniversity.description
+          mappedUniversity.highlights = mappedUniversity.highlights || []
+        }
+
+        const mappedCourse: any = { ...(course || {}) }
+        if (data.course) {
+          mappedCourse.name = data.course.course_name || mappedCourse.name
+          mappedCourse.id = data.course.course_id || mappedCourse.id
+          mappedCourse.department = data.course.department || mappedCourse.department
+          mappedCourse.degree = data.course.graduation_level || mappedCourse.degree || mappedCourse.level
+        }
+
+        mappedCourse.fees = data.tuition_fee || mappedCourse.fees || data.tuitionFee || mappedCourse.fee
+        mappedCourse.applicationFee = data.application_fee || mappedCourse.applicationFee
+        mappedCourse.duration = data.duration || mappedCourse.duration
+        mappedCourse.intake = data.intake_months || data.intakeMonths || data.intake_months || mappedCourse.intake
+        mappedCourse.remarks = data.remarks || mappedCourse.remarks
+        mappedCourse.min10thScore = data.min10th_score ?? data.min10thScore ?? mappedCourse.min10thScore
+        mappedCourse.minInterScore = data.min_inter_score ?? data.minInterScore ?? mappedCourse.minInterScore
+        mappedCourse.minGraduationScore = data.min_graduation_score ?? data.minGraduationScore ?? mappedCourse.minGraduationScore
+        mappedCourse.toeflMin = data.toefl_min_score ?? mappedCourse.toeflMin
+        mappedCourse.ieltsMin = data.ielts_min_score ?? mappedCourse.ieltsMin
+
+        if (!mounted) return
+        setFetchedUniversity(mappedUniversity)
+        setFetchedCourse(mappedCourse)
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    fetchDetail()
+    return () => {
+      mounted = false
+    }
+  }, [params.courseId, params.universityId])
+
+  // Prefer fetched data when available
+  if (fetchedUniversity) university = fetchedUniversity
+  if (fetchedCourse) course = fetchedCourse
 
   if (!university || !course) {
     return (
@@ -782,13 +844,12 @@ export default function CourseDetailPage() {
                     ].map((timeline, index) => (
                       <div key={index} className="flex items-center gap-4">
                         <div
-                          className={`w-4 h-4 rounded-full ${
-                            timeline.status === "completed"
-                              ? "bg-green-500"
-                              : timeline.status === "current"
-                                ? "bg-blue-500 animate-pulse"
-                                : "bg-gray-300"
-                          }`}
+                          className={`w-4 h-4 rounded-full ${timeline.status === "completed"
+                            ? "bg-green-500"
+                            : timeline.status === "current"
+                              ? "bg-blue-500 animate-pulse"
+                              : "bg-gray-300"
+                            }`}
                         />
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{timeline.phase}</div>
@@ -856,11 +917,10 @@ export default function CourseDetailPage() {
                             </div>
                           </div>
                           <Badge
-                            className={`${
-                              growthLevels[index] === "Very High"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
+                            className={`${growthLevels[index] === "Very High"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-blue-100 text-blue-800"
+                              }`}
                           >
                             {growthLevels[index]} Growth
                           </Badge>

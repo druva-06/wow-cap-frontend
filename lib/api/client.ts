@@ -112,3 +112,13 @@ export async function searchCollegeCourses(payload: any): Promise<any> {
     throw err
   }
 }
+
+export async function getCollegeCourseDetail(id: string | number): Promise<any> {
+  try {
+    const res = await axios.get(`/api/college-course/collegeCourseDetail/${id}`)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
