@@ -34,6 +34,8 @@ import Image from "next/image"
 import { studyAbroadUniversities, studyIndiaColleges } from "@/lib/sample-data"
 import { useEffect } from "react"
 import { getCollegeCourseDetail } from "@/lib/api/client"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Loader } from "lucide-react"
 
 export default function CourseDetailPage() {
   const params = useParams()
@@ -55,6 +57,7 @@ export default function CourseDetailPage() {
   let course: any = null
   const [fetchedUniversity, setFetchedUniversity] = useState<any>(null)
   const [fetchedCourse, setFetchedCourse] = useState<any>(null)
+  const [isFetchingDetails, setIsFetchingDetails] = useState<boolean>(true)
   let type = "abroad"
 
   // Try to find course by matching params
@@ -84,8 +87,12 @@ export default function CourseDetailPage() {
     let mounted = true
     const fetchDetail = async () => {
       try {
+        setIsFetchingDetails(true)
         const id = params.courseId || params.courseSlug || params.course
-        if (!id) return
+        if (!id) {
+          setIsFetchingDetails(false)
+          return
+        }
         const resp = await getCollegeCourseDetail(id)
         const data = resp?.response
         if (!data) return
@@ -125,6 +132,8 @@ export default function CourseDetailPage() {
         setFetchedCourse(mappedCourse)
       } catch (e) {
         // ignore
+      } finally {
+        if (mounted) setIsFetchingDetails(false)
       }
     }
 
@@ -137,6 +146,100 @@ export default function CourseDetailPage() {
   // Prefer fetched data when available
   if (fetchedUniversity) university = fetchedUniversity
   if (fetchedCourse) course = fetchedCourse
+
+  const CourseDetailLoading: React.FC = () => (
+    <div className="min-h-screen bg-white">
+      <div className="relative bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900 text-white">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid lg:grid-cols-3 gap-12 items-start">
+            <div className="lg:col-span-2">
+              <div className="mb-8 space-y-4">
+                <Skeleton className="h-10 w-3/4 bg-white/20" />
+                <div className="flex gap-3">
+                  <Skeleton className="h-6 w-24 bg-white/20" />
+                  <Skeleton className="h-6 w-24 bg-white/20" />
+                  <Skeleton className="h-6 w-28 bg-white/20" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 mb-8">
+                <Skeleton className="h-14 w-14 rounded-xl bg-white/30" />
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-64 bg-white/20" />
+                  <Skeleton className="h-4 w-40 bg-white/10" />
+                </div>
+              </div>
+
+              <Skeleton className="h-20 w-full bg-white/10 mb-8" />
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white/10 rounded-xl p-4 text-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-lg mx-auto mb-3" />
+                    <Skeleton className="h-4 w-20 mx-auto bg-white/20 mb-2" />
+                    <Skeleton className="h-5 w-24 mx-auto bg-white/30" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Skeleton className="h-12 w-44 bg-white/30" />
+                <Skeleton className="h-12 w-40 bg-white/20" />
+              </div>
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Loader className="w-6 h-6 animate-spin text-white" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold">Loading counselor form…</div>
+                    <div className="text-blue-200 text-xs">Hang tight, setting things up</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Skeleton className="h-9 w-full bg-white/20" />
+                  <Skeleton className="h-9 w-full bg-white/20" />
+                  <Skeleton className="h-9 w-full bg-white/20" />
+                  <Skeleton className="h-9 w-full bg-white/20" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-9 flex-1 bg-white/30" />
+                    <Skeleton className="h-9 flex-1 bg-white/20" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-40 w-full" />
+            <div className="grid md:grid-cols-2 gap-6">
+              <Skeleton className="h-28 w-full" />
+              <Skeleton className="h-28 w-full" />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-40" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  if ((!university || !course) && isFetchingDetails) {
+    return <CourseDetailLoading />
+  }
 
   if (!university || !course) {
     return (
