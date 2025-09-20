@@ -177,6 +177,8 @@ function SearchResultsContent() {
   }
 
   const debounceRef = useRef<number | null>(null)
+  const fetchInProgressRef = useRef(false)
+  const lastFetchKeyRef = useRef<string | null>(null)
 
   // Fetch server results when vertical is study-abroad, on mount and when filters/searchQuery changes
   useEffect(() => {
@@ -188,6 +190,40 @@ function SearchResultsContent() {
 
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current)
+    }
+
+    // On initial mount, if we have cached backend results from the home page
+    // use them directly to avoid an immediate duplicate API call.
+    try {
+      const cached = localStorage.getItem("wowcap_search_results")
+      if (cached && !apiCourses) {
+        const parsed = JSON.parse(cached)
+        if (parsed && Array.isArray(parsed.data)) {
+          setApiCourses(parsed.data)
+          const pagination = parsed.pagination || null
+          if (pagination) {
+            setApiPagination({
+              currentPage: pagination.currentPage || currentPage,
+              pageSize: pagination.pageSize || resultsPerPage,
+              totalPages: pagination.totalPages || Math.max(1, Math.ceil((pagination.totalItems || parsed.data.length) / resultsPerPage)),
+              totalItems: pagination.totalItems || parsed.data.length,
+            })
+          }
+          // record last fetch key so we don't immediately re-fetch the same payload
+          try {
+            const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+            const intakeParamForKey = sp ? (sp.get('intake') || sp.get('intakeMonths') || '') : ''
+            const keyObj = { page: (pagination && pagination.currentPage) || currentPage, q: queryFromUrl || searchQuery, filters, intake: intakeParamForKey }
+            lastFetchKeyRef.current = JSON.stringify(keyObj)
+          } catch (e) {
+            // ignore
+          }
+          // don't immediately fetch from API when cached results exist
+          return
+        }
+      }
+    } catch (e) {
+      // proceed to fetch if cache parsing fails
     }
 
     // debounce filter changes by 350ms
@@ -248,6 +284,26 @@ function SearchResultsContent() {
 
   // Build and send search request to server for study-abroad vertical
   const fetchCoursesFromApi = async (page: number) => {
+    // Prevent duplicate fetches when same request is already in progress or just completed
+    try {
+      const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+      const intakeParamForKey = sp ? (sp.get('intake') || sp.get('intakeMonths') || '') : ''
+      const keyObj = { page, q: searchQuery, filters, intake: intakeParamForKey }
+      const key = JSON.stringify(keyObj)
+      if (fetchInProgressRef.current) {
+        console.log('[v0] SearchResults: fetch already in progress, skipping duplicate')
+        return
+      }
+      if (lastFetchKeyRef.current === key) {
+        console.log('[v0] SearchResults: fetch payload identical to last fetch, skipping')
+        return
+      }
+      lastFetchKeyRef.current = key
+      fetchInProgressRef.current = true
+    } catch (e) {
+      // continue if key computation fails
+    }
+
     setLoading(true)
     try {
       const { searchCollegeCourses } = await import("@/lib/api/client")
@@ -256,6 +312,47 @@ function SearchResultsContent() {
       const apiLevels = mapLevelsToApi(filters.levels || [])
       const apiCountries = mapCountriesToApi(filters.countries || [])
       const apiDuration = mapDurationToMonths(filters.duration || [0, 0])
+
+      // Determine intakeMonths: prefer URL param 'intake', then filters (if any)
+      const intakeParam = (() => {
+        try {
+          const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+          if (sp) return sp.get('intake') || sp.get('intakeMonths') || null
+        } catch (e) {
+          return null
+        }
+        return null
+      })()
+
+      const mapIntakeToMonthsLocal = (intakeValue: string | null) => {
+        if (!intakeValue) return []
+        const v = intakeValue.toString().trim()
+        if (!v) return []
+        // If already comma-separated codes
+        const tokens = v.split(/[ ,|]+/).map((t) => t.trim()).filter(Boolean)
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+        const normalized: string[] = []
+        for (const t of tokens) {
+          const code = t.slice(0, 3).toUpperCase()
+          if (months.includes(code)) normalized.push(code)
+          else {
+            const lower = t.toLowerCase()
+            if (lower.includes('jan')) normalized.push('JAN')
+            else if (lower.includes('feb')) normalized.push('FEB')
+            else if (lower.includes('mar')) normalized.push('MAR')
+            else if (lower.includes('apr')) normalized.push('APR')
+            else if (lower.includes('may')) normalized.push('MAY')
+            else if (lower.includes('jun')) normalized.push('JUN')
+            else if (lower.includes('jul')) normalized.push('JUL')
+            else if (lower.includes('aug')) normalized.push('AUG')
+            else if (lower.includes('sep')) normalized.push('SEP')
+            else if (lower.includes('oct')) normalized.push('OCT')
+            else if (lower.includes('nov')) normalized.push('NOV')
+            else if (lower.includes('dec')) normalized.push('DEC')
+          }
+        }
+        return Array.from(new Set(normalized))
+      }
 
       // Map internal filters to API payload shape
       const payload = {
@@ -269,7 +366,8 @@ function SearchResultsContent() {
           graduation_levels: apiLevels,
           countries: apiCountries,
           duration: apiDuration,
-          intakeMonths: [],
+          // If URL contains an intake parameter, use it. Otherwise use empty array so backend returns all.
+          intakeMonths: intakeParam ? mapIntakeToMonthsLocal(intakeParam) : [],
         },
         search: {
           term: searchQuery || "",
@@ -309,6 +407,7 @@ function SearchResultsContent() {
       setApiPagination({ currentPage: page, pageSize: resultsPerPage, totalPages: 1, totalItems: 0 })
     } finally {
       setLoading(false)
+      fetchInProgressRef.current = false
     }
   }
 
@@ -361,7 +460,7 @@ function SearchResultsContent() {
                     name: item.courseName || "Unknown Course",
                     fee: item.tuitionFee || 0,
                     duration: item.duration || "2 years",
-                    intake: item.intakeMonths || item.intakeYear || "",
+                    intake: Array.isArray(item.intakeMonths) ? item.intakeMonths : (item.intakeMonths || item.intakeYear || ""),
                     courseRaw: item,
                   },
                 ],
@@ -541,7 +640,7 @@ function SearchResultsContent() {
       fee: Number(item.tuitionFee) || 0,
       duration: item.duration || '2 years',
       level: item.graduationLevel || 'Graduate',
-      intake: Array.isArray(item.intakeMonths) ? item.intakeMonths.join(', ') : item.intakeMonths || item.intakeYear || '',
+      intake: Array.isArray(item.intakeMonths) ? item.intakeMonths : item.intakeMonths || item.intakeYear || '',
       universityLogo: item.collegeImage || `/placeholder.svg?height=40&width=80&text=${encodeURIComponent(item.collegeName || 'University')}`,
       universityRanking: item.universityRanking || 999,
       rating: item.rating || 4.5,
@@ -608,24 +707,44 @@ function SearchResultsContent() {
     return `₹${(fee).toLocaleString()}/year`
   }
 
-  const formatIntake = (intake: string) => {
-    if (!intake) return "July 2024"
+  const monthCodeToName = (code: string) => {
+    if (!code) return null
+    const c = code.toString().trim().slice(0, 3).toUpperCase()
+    const map: Record<string, string> = {
+      JAN: "January",
+      FEB: "February",
+      MAR: "March",
+      APR: "April",
+      MAY: "May",
+      JUN: "June",
+      JUL: "July",
+      AUG: "August",
+      SEP: "September",
+      OCT: "October",
+      NOV: "November",
+      DEC: "December",
+    }
+    return map[c] || null
+  }
 
-    const intakeLower = intake.toLowerCase()
-    if (intakeLower.includes("jan")) return `July 2024`
-    if (intakeLower.includes("feb")) return `August 2024`
-    if (intakeLower.includes("mar")) return `September 2024`
-    if (intakeLower.includes("apr")) return `October 2024`
-    if (intakeLower.includes("may")) return `November 2024`
-    if (intakeLower.includes("jun")) return `December 2024`
-    if (intakeLower.includes("jul")) return `July 2024`
-    if (intakeLower.includes("aug")) return `August 2024`
-    if (intakeLower.includes("sep")) return `September 2024`
-    if (intakeLower.includes("oct")) return `October 2024`
-    if (intakeLower.includes("nov")) return `November 2024`
-    if (intakeLower.includes("dec")) return `December 2024`
+  const formatIntake = (intake: string | string[] | undefined) => {
+    try {
+      if (!intake) return "Rolling"
 
-    return `July 2024`
+      let codes: string[] = []
+      if (Array.isArray(intake)) codes = intake.map((s) => (s || "").toString().trim().toUpperCase())
+      else codes = intake.toString().split(/[ ,|]+/).map((s) => (s || "").toString().trim().toUpperCase()).filter(Boolean)
+
+      if (codes.length === 0) return "Rolling"
+
+      // Map to month names
+      const months = codes.map((c) => monthCodeToName(c) || c)
+
+      // If there are multiple, join with comma
+      return months.join(", ")
+    } catch (e) {
+      return "Rolling"
+    }
   }
 
   const createSlug = (text: string) => {

@@ -587,13 +587,37 @@ export default function HomePage() {
 
                           const mapIntakeToMonths = (intake: string) => {
                             if (!intake) return []
-                            const v = intake.toLowerCase()
-                            // Map common intake labels to representative month codes
-                            if (v === "fall" || v === "autumn" || v.includes("sep") || v.includes("sept")) return ["SEP"]
-                            if (v === "spring" || v.includes("jan") || v.includes("feb")) return ["JAN"]
-                            if (v === "summer" || v.includes("may") || v.includes("jun")) return ["MAY"]
-                            // If intake is already a month code like 'JAN', return it normalized
-                            if (/^[A-Za-z]{3}$/.test(intake)) return [intake.toUpperCase()]
+                            const raw = intake.toString().trim()
+                            // If value is 'all' or similar, return empty to not filter
+                            if (raw.toLowerCase() === 'all') return []
+
+                            // Normalize common variants to 3-letter month codes
+                            const m = raw.slice(0, 3).toUpperCase()
+                            const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+                            if (months.includes(m)) return [m]
+
+                            // Handle full words like 'January', 'February'
+                            const monthNames: Record<string, string> = {
+                              january: 'JAN', february: 'FEB', march: 'MAR', april: 'APR', may: 'MAY', june: 'JUN',
+                              july: 'JUL', august: 'AUG', september: 'SEP', october: 'OCT', november: 'NOV', december: 'DEC'
+                            }
+                            const lower = raw.toLowerCase()
+                            for (const [k, v] of Object.entries(monthNames)) {
+                              if (lower.startsWith(k) || lower.includes(k)) return [v]
+                            }
+
+                            // Common season names
+                            if (lower.includes('fall') || lower.includes('autumn')) return ['SEP']
+                            if (lower.includes('spring')) return ['JAN']
+                            if (lower.includes('summer')) return ['MAY']
+
+                            // fallback: try to extract any 3-letter month token
+                            const match = raw.match(/([A-Za-z]{3})/)
+                            if (match) {
+                              const code = match[1].toUpperCase()
+                              if (months.includes(code)) return [code]
+                            }
+
                             return []
                           }
 
