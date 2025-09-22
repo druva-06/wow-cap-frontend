@@ -30,6 +30,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
 import Link from "next/link"
 import type { UnifiedUserProfile } from "@/types/user"
+import { toast } from "@/hooks/use-toast"
+import { addWishlistItem } from "@/lib/api/client"
 
 interface FilterState {
   countries: string[]
@@ -70,6 +72,7 @@ function SearchResultsContent() {
   const [apiCourses, setApiCourses] = useState<any[] | null>(null)
   const [apiPagination, setApiPagination] = useState<{ currentPage: number; pageSize: number; totalPages: number; totalItems: number } | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
+  const [wishlistLoading, setWishlistLoading] = useState<Record<string, boolean>>({})
   const [comparisonList, setComparisonList] = useState<string[]>([])
   const [pendingApplication, setPendingApplication] = useState<{ universityId: string; courseId: string } | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -415,8 +418,55 @@ function SearchResultsContent() {
     // Handle advanced filters modal
   }
 
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+  const handleAddToWishlist = async (course: any) => {
+    try {
+      if (!isLoggedIn || !userData) {
+        setShowLoginModal(true)
+        return
+      }
+
+      const key = course.id as string
+      if (wishlistLoading[key]) return
+      setWishlistLoading((prev) => ({ ...prev, [key]: true }))
+
+      // Extract numeric student id if stored as "WC123"
+      const rawStudentId = userData.studentId || ""
+      const numericPart = rawStudentId ? Number(String(rawStudentId).replace(/\D+/g, "")) : NaN
+      const studentIdForApi = Number.isFinite(numericPart) && numericPart > 0 ? numericPart : undefined
+
+      if (!studentIdForApi) {
+        toast({ title: "Profile issue", description: "Cannot determine your student ID.", variant: "destructive" })
+        return
+      }
+
+      const courseIdForApi = course.collegeCourseId || course.courseId
+      if (!courseIdForApi) {
+        toast({ title: "Missing course info", description: "Course identifier is not available.", variant: "destructive" })
+        return
+      }
+
+      const res = await addWishlistItem(studentIdForApi, courseIdForApi)
+      if (res?.success) {
+        setFavorites((prev) => (prev.includes(key) ? prev : [...prev, key]))
+        toast({ title: "Added to wishlist", description: res?.message || "Item added to wishlist" })
+      } else {
+        const msg = res?.message || "Could not add to wishlist"
+        // If already exists, mark as favorite locally for UI consistency
+        if (/already\s+in\s+the\s+wishlist/i.test(msg)) {
+          setFavorites((prev) => (prev.includes(key) ? prev : [...prev, key]))
+        }
+        toast({ title: "Wishlist", description: msg, variant: res?.success ? undefined : "destructive" })
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to add to wishlist"
+      toast({ title: "Wishlist error", description: String(msg), variant: "destructive" })
+    } finally {
+      setWishlistLoading((prev) => {
+        const copy = { ...prev }
+        delete copy[course.id]
+        return copy
+      })
+    }
   }
 
   const toggleComparison = (id: string) => {
@@ -1016,13 +1066,14 @@ function SearchResultsContent() {
 
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => toggleFavorite(course.id)}
-                                className="text-gray-400 hover:text-red-500 transition-colors p-1 flex items-center gap-1 favorite-button"
+                                onClick={() => handleAddToWishlist(course)}
+                                disabled={!!wishlistLoading[course.id]}
+                                className={`transition-colors p-1 flex items-center gap-1 favorite-button ${favorites.includes(course.id) ? "text-red-500" : "text-gray-400 hover:text-red-500"}`}
                               >
                                 <Heart
                                   className={`w-4 h-4 ${favorites.includes(course.id) ? "fill-red-500 text-red-500" : ""}`}
                                 />
-                                <span className="text-xs text-gray-500 hidden sm:inline">Add to list</span>
+                                <span className="text-xs text-gray-500 hidden sm:inline">{favorites.includes(course.id) ? "Added" : (wishlistLoading[course.id] ? "Adding..." : "Add to list")}</span>
                               </button>
                             </div>
                           </div>

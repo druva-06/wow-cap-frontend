@@ -122,3 +122,17 @@ export async function getCollegeCourseDetail(id: string | number): Promise<any> 
     throw err
   }
 }
+
+// Wishlist APIs
+export async function addWishlistItem(studentId: number | string, collegeCourseId: number | string): Promise<any> {
+  try {
+    const sid = typeof studentId === "string" ? studentId.trim() : studentId
+    const cid = typeof collegeCourseId === "string" ? Number.parseInt(collegeCourseId, 10) : collegeCourseId
+    const url = `/api/students/${encodeURIComponent(String(sid))}/wishlist/items`
+    const res = await axios.post(url, { collegeCourseId: cid })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
