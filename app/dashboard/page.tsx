@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -1108,35 +1108,35 @@ export default function DashboardPage() {
     }
   }, [searchParams])
 
-  // Load wishlist when My Saved is active
-  useEffect(() => {
+  // Load wishlist when My Saved is active (and on retry)
+  const loadWishlist = useCallback(async () => {
     const isShortlistMySaved = activeTab === "shortlist" && activeSubTab === "my-saved"
     if (!isShortlistMySaved) return
     if (!user?.studentId) return
     const numericStudentId = Number(String(user.studentId).replace(/\D+/g, ""))
     if (!Number.isFinite(numericStudentId) || numericStudentId <= 0) return
 
-    const load = async () => {
-      try {
-        setWishlistLoading(true)
-        setWishlistError(null)
-        const res = await getWishlistItems(numericStudentId)
-        if (res?.success && Array.isArray(res?.response)) {
-          setWishlistItems(res.response as WishlistItem[])
-        } else {
-          setWishlistItems([])
-          setWishlistError(res?.message || "Failed to load wishlist")
-        }
-      } catch (e: any) {
-        setWishlistError(e?.response?.data?.message || e?.message || "Failed to load wishlist")
+    try {
+      setWishlistLoading(true)
+      setWishlistError(null)
+      const res = await getWishlistItems(numericStudentId)
+      if (res?.success && Array.isArray(res?.response)) {
+        setWishlistItems(res.response as WishlistItem[])
+      } else {
         setWishlistItems([])
-      } finally {
-        setWishlistLoading(false)
+        setWishlistError(res?.message || "Failed to load wishlist")
       }
+    } catch (e: any) {
+      setWishlistError(e?.response?.data?.message || e?.message || "Failed to load wishlist")
+      setWishlistItems([])
+    } finally {
+      setWishlistLoading(false)
     }
-
-    load()
   }, [activeTab, activeSubTab, user?.studentId])
+
+  useEffect(() => {
+    loadWishlist()
+  }, [loadWishlist])
 
   const handleTabChange = (tabId: string, subTabId = "") => {
     setActiveTab(tabId)
@@ -1886,6 +1886,37 @@ export default function DashboardPage() {
     </div>
   )
 
+  // Map wishlist API item to the same shape used by Overall cards
+  const renderWishlistCard = (item: WishlistItem) => {
+    const parsedTuition = (() => {
+      const n = Number(String(item.tuitionFee).replace(/[^0-9.]/g, ""))
+      if (!isFinite(n) || n <= 0) return null
+      try {
+        return n.toLocaleString()
+      } catch {
+        return String(n)
+      }
+    })()
+
+    const mapped = {
+      id: item.wishlistItemId,
+      name: item.collegeName || "College",
+      program: item.courseName || "Course",
+      location: item.campusName || "Campus",
+      // Dummy values where API doesn't provide these fields
+      match: 88,
+      acceptance: 24.5,
+      tuition: parsedTuition ? `${parsedTuition}/year` : String(item.tuitionFee || "—"),
+      deadline: "TBD",
+      tags: [
+        "Saved by you",
+        item.campusName ? `Campus: ${item.campusName}` : "Popular program",
+      ],
+    }
+
+    return renderRecommendationCard(mapped)
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -2182,12 +2213,46 @@ export default function DashboardPage() {
                   <p className="text-gray-600 mb-6">Universities and courses you've saved</p>
 
                   {wishlistLoading && (
-                    <div className="bg-white rounded-xl border p-8 text-center text-gray-600">Loading wishlist...</div>
+                    <div className="bg-white rounded-xl border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="border rounded-xl p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                                <div className="h-4 w-64 bg-gray-200 rounded animate-pulse mb-2" />
+                                <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                              <div className="text-right">
+                                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+                                <div className="h-6 w-28 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                            <div className="flex gap-3">
+                              <div className="h-10 flex-1 bg-gray-200 rounded animate-pulse" />
+                              <div className="h-10 flex-1 bg-gray-200 rounded animate-pulse" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-6 flex justify-center">
+                        <Button variant="outline" className="border-blue-200 text-blue-600" onClick={loadWishlist}>
+                          Retry Now
+                        </Button>
+                      </div>
+                    </div>
                   )}
 
                   {wishlistError && !wishlistLoading && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6">
-                      {wishlistError}
+                    <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+                      <span>{wishlistError}</span>
+                      <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100" onClick={loadWishlist}>
+                        Retry
+                      </Button>
                     </div>
                   )}
 
@@ -2205,30 +2270,7 @@ export default function DashboardPage() {
                   {!wishlistLoading && !wishlistError && wishlistItems.length > 0 && (
                     <div className="grid gap-6">
                       {wishlistItems.map((item) => (
-                        <div key={item.wishlistItemId} className="bg-white rounded-xl border p-6">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="text-lg font-semibold text-gray-900 mb-1">{item.collegeName}</h3>
-                              <p className="text-gray-700 mb-1">{item.courseName}</p>
-                              <p className="text-sm text-gray-500">{item.campusName}</p>
-                            </div>
-                            <div className="text-right">
-                              <div className="inline-flex items-center px-2 py-1 rounded-full bg-pink-50 text-pink-700 text-xs mb-2">
-                                <Heart className="w-3 h-3 mr-1" />
-                                Saved
-                              </div>
-                              <div className="text-sm text-gray-600">Tuition Fee</div>
-                              <div className="text-lg font-semibold text-gray-900">{item.tuitionFee}</div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 flex gap-3">
-                            <Button variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50">
-                              View Details
-                            </Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700">Apply Now</Button>
-                          </div>
-                        </div>
+                        <div key={item.wishlistItemId}>{renderWishlistCard(item)}</div>
                       ))}
                     </div>
                   )}
