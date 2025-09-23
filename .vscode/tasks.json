@@ -10,6 +10,13 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Type Check",
+			"type": "shell",
+			"command": "pnpm -s tsc --noEmit",
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

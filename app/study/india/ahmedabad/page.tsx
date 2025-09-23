@@ -29,11 +29,11 @@ export default function StudyAhmedabadPage() {
   const [currentLogoIndex, setCurrentLogoIndex] = useState(0)
 
   const ahmedabadResults = useMemo(() => {
-    return studyIndiaColleges.filter(
-      (university) =>
-        (university.city && university.city.toLowerCase() === "ahmedabad") ||
-        university.location.toLowerCase().includes("ahmedabad"),
-    )
+    return studyIndiaColleges.filter((university) => {
+      const city = university.city?.toLowerCase()
+      const location = university.location?.toLowerCase()
+      return city === "ahmedabad" || (location && location.includes("ahmedabad"))
+    })
   }, [])
 
   const logosPerPage = 12
@@ -333,11 +333,10 @@ export default function StudyAhmedabadPage() {
                   <button
                     key={index}
                     onClick={() => setCurrentLogoIndex(index * logosPerPage)}
-                    className={`w-3 h-3 rounded-full transition-colors ${
-                      Math.floor(currentLogoIndex / logosPerPage) === index
+                    className={`w-3 h-3 rounded-full transition-colors ${Math.floor(currentLogoIndex / logosPerPage) === index
                         ? "bg-purple-600"
                         : "bg-gray-300 hover:bg-gray-400"
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
