@@ -47,7 +47,8 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
-import { getWishlistItems } from "@/lib/api/client"
+import { toast } from "@/hooks/use-toast"
+import { getWishlistItems, removeWishlistItem } from "@/lib/api/client"
 
 interface Application {
   id: string
@@ -165,10 +166,14 @@ const AvatarFallback = ({ children, className = "" }: { children: React.ReactNod
   </div>
 )
 
-// Simple toast function
+// Simple toast wrapper (non-blocking UI toast)
 const showToast = (title: string, description?: string) => {
-  console.log(`${title}: ${description || ""}`)
-  alert(`${title}${description ? `: ${description}` : ""}`)
+  try {
+    toast({ title, description })
+  } catch {
+    // Fallback to console in case toast system is unavailable
+    console.log(`${title}: ${description || ""}`)
+  }
 }
 
 // Sample university data for search
@@ -997,6 +1002,10 @@ export default function DashboardPage() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [wishlistError, setWishlistError] = useState<string | null>(null)
+  // UI-only map to toggle heart state per wishlist card (no API yet)
+  const [wishlistLocalSaved, setWishlistLocalSaved] = useState<Record<number, boolean>>({})
+  // Track in-flight removal calls per wishlist item id
+  const [wishlistRemoving, setWishlistRemoving] = useState<Record<number, boolean>>({})
 
   const [expandedApplications, setExpandedApplications] = useState<Set<string>>(new Set())
 
@@ -1121,7 +1130,12 @@ export default function DashboardPage() {
       setWishlistError(null)
       const res = await getWishlistItems(numericStudentId)
       if (res?.success && Array.isArray(res?.response)) {
-        setWishlistItems(res.response as WishlistItem[])
+        const items = (res.response as WishlistItem[]) || []
+        setWishlistItems(items)
+        // initialize local saved flags for UI toggle (filled heart)
+        const initMap: Record<number, boolean> = {}
+        for (const it of items) initMap[it.wishlistItemId] = true
+        setWishlistLocalSaved(initMap)
       } else {
         setWishlistItems([])
         setWishlistError(res?.message || "Failed to load wishlist")
@@ -1140,10 +1154,14 @@ export default function DashboardPage() {
 
   const handleTabChange = (tabId: string, subTabId = "") => {
     setActiveTab(tabId)
-    setActiveSubTab(subTabId)
+    const defaultSub = tabId === "shortlist" && !subTabId ? "my-saved" : ""
+    const effectiveSubTab = subTabId || defaultSub
+    setActiveSubTab(effectiveSubTab)
 
-    // Use new URL structure
-    const newPath = subTabId ? `/student-dashboard/${tabId}/${subTabId}` : `/student-dashboard/${tabId}`
+    // Use new URL structure and default to my-saved for shortlist
+    const newPath = effectiveSubTab
+      ? `/student-dashboard/${tabId}/${effectiveSubTab}`
+      : `/student-dashboard/${tabId}`
 
     window.history.pushState({}, "", newPath)
   }
@@ -1298,9 +1316,9 @@ export default function DashboardPage() {
       icon: Heart,
       color: "text-red-600",
       subtabs: [
-        { id: "overall", label: "Overall" },
+        // { id: "overall", label: "Overall" },
         { id: "my-saved", label: "My Saved" },
-        { id: "expert-shortlist", label: "Expert Shortlist" },
+        //{ id: "expert-shortlist", label: "Expert Shortlist" },
         { id: "comparison", label: "Comparison Tool" },
       ],
     },
@@ -1844,6 +1862,61 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-500">{university.location}</p>
         </div>
         <div className="text-right">
+          {university.showWishlistToggle && (
+            <div className="flex justify-end mb-2">
+              {(() => {
+                const id = Number(university.id)
+                const isSaved = !!wishlistLocalSaved[id]
+                const isBusy = !!wishlistRemoving[id]
+                const btnClass = `transition-colors p-1 flex items-center gap-1 favorite-button ${isSaved ? "text-red-500" : "text-gray-400 hover:text-red-500"
+                  } ${isBusy ? "opacity-60 cursor-not-allowed" : ""}`
+                return (
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={async () => {
+                      // Remove
+                      if (isSaved) {
+                        try {
+                          if (!user?.studentId) {
+                            showToast("Login required", "Please login to modify your wishlist")
+                            return
+                          }
+                          const sid = Number(String(user.studentId).replace(/\D+/g, ""))
+                          if (!Number.isFinite(sid) || sid <= 0) {
+                            showToast("Invalid account", "Could not read your student ID")
+                            return
+                          }
+                          setWishlistRemoving((p) => ({ ...p, [id]: true }))
+                          await removeWishlistItem(sid, id)
+                          // Refetch wishlist to sync and show loading effect
+                          await loadWishlist()
+                          showToast("Removed from Wishlist", university.name)
+                        } catch (e: any) {
+                          setWishlistLocalSaved((prev) => ({ ...prev, [id]: true }))
+                          const msg = e?.response?.data?.message || e?.message || "Failed to remove"
+                          showToast("Failed to remove", msg)
+                        } finally {
+                          setWishlistRemoving((p) => ({ ...p, [id]: false }))
+                        }
+                      } else {
+                        // Add (UI-only for now)
+                        setWishlistLocalSaved((prev) => ({ ...prev, [id]: true }))
+                        showToast("Added to Wishlist", university.name)
+                      }
+                    }}
+                    className={btnClass}
+                    aria-label={isSaved ? "Remove from wishlist" : "Add to wishlist"}
+                  >
+                    <Heart className={`w-4 h-4 ${isSaved ? "fill-red-500 text-red-500" : ""}`} />
+                    <span className="text-xs hidden sm:inline">
+                      {isSaved ? (isBusy ? "Removing..." : "Added") : "Add to list"}
+                    </span>
+                  </button>
+                )
+              })()}
+            </div>
+          )}
           <div className="flex items-center space-x-2 mb-2">
             <Star className="w-4 h-4 text-yellow-500 fill-current" />
             <span className="text-lg font-bold text-gray-900">{university.match}% match</span>
@@ -1912,6 +1985,7 @@ export default function DashboardPage() {
         "Saved by you",
         item.campusName ? `Campus: ${item.campusName}` : "Popular program",
       ],
+      showWishlistToggle: true,
     }
 
     return renderRecommendationCard(mapped)

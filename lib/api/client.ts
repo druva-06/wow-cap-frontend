@@ -148,3 +148,19 @@ export async function getWishlistItems(studentId: number | string): Promise<any>
     throw err
   }
 }
+
+export async function removeWishlistItem(
+  studentId: number | string,
+  wishlistItemId: number | string
+): Promise<any> {
+  try {
+    const sid = typeof studentId === "string" ? studentId.trim() : studentId
+    const wid = typeof wishlistItemId === "string" ? wishlistItemId.trim() : wishlistItemId
+    const url = `/api/students/${encodeURIComponent(String(sid))}/wishlist/items/${encodeURIComponent(String(wid))}`
+    const res = await axios.delete(url)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
