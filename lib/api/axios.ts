@@ -13,7 +13,7 @@ const instance = axios.create({
   },
 })
 
-// Attach token from localStorage if present
+// Attach token from storage if present
 instance.interceptors.request.use((config) => {
   try {
     const token = typeof window !== "undefined" ? getToken() : null
@@ -23,6 +23,52 @@ instance.interceptors.request.use((config) => {
   }
   return config
 })
+
+// State to avoid multiple parallel refresh calls
+let isRefreshing = false
+let refreshQueue: Array<{
+  resolve: (value?: any) => void
+  reject: (reason?: any) => void
+}> = []
+
+function processRefreshQueue(error: any, token: string | null) {
+  refreshQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)))
+  refreshQueue = []
+}
+
+function handleAuthFailure(message = "Session expired") {
+  try {
+    clearTokens()
+    if (typeof window !== "undefined") {
+      // Remove stored user/profile + any wowcap_* keys (localStorage & sessionStorage)
+      try {
+        const purge = (storage: Storage) => {
+          const keys: string[] = []
+          for (let i = 0; i < storage.length; i++) {
+            const key = storage.key(i)
+            if (!key) continue
+            if (key.startsWith("wowcap_")) keys.push(key)
+            if (key === "wowcap_user") keys.push(key)
+          }
+          keys.forEach((k) => storage.removeItem(k))
+        }
+        purge(localStorage)
+        purge(sessionStorage)
+      } catch {}
+      // Broadcast auth change
+      window.dispatchEvent(new Event("authStateChanged"))
+      // Redirect to login (preserve intended page as redirect param if desired)
+      try {
+        const current = window.location.pathname + window.location.search
+        const loginUrl = `/login?redirect=${encodeURIComponent(current)}`
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.replace(loginUrl)
+        }
+      } catch {}
+    }
+  } catch {}
+  toast({ title: message, description: "Please login again", variant: "destructive" })
+}
 
 instance.interceptors.response.use(
   (res) => res,
@@ -34,56 +80,75 @@ instance.interceptors.response.use(
     if (status === 401) {
       try {
         const originalRequest = error.config
-        // avoid infinite loops
-        if (!originalRequest || originalRequest._retry) {
-          clearTokens()
-          if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
-          toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
+        if (!originalRequest) return Promise.reject(error)
+
+        // If request already flagged to retry, do not loop
+        if (originalRequest._retry) {
+          handleAuthFailure()
           return Promise.reject(error)
         }
 
         const refreshToken = getRefreshToken()
         if (!refreshToken) {
-          clearTokens()
-          if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
-          toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
+          handleAuthFailure()
           return Promise.reject(error)
         }
 
-        // Mark request as retried
-        originalRequest._retry = true
+        // Extract email from stored user profile
+        let email: string | null = null
+        try {
+          const raw = typeof window !== "undefined" ? localStorage.getItem("wowcap_user") : null
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            email = parsed?.email || parsed?.username || null
+          }
+        } catch {}
 
-        // Call refresh endpoint - adjust path if backend uses different route
+        if (!email) {
+          handleAuthFailure()
+          return Promise.reject(error)
+        }
+
+        // Queue requests while a refresh is in progress
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            refreshQueue.push({ resolve, reject })
+          })
+            .then((newAccess) => {
+              if (newAccess && originalRequest.headers)
+                originalRequest.headers["Authorization"] = `Bearer ${newAccess}`
+              return instance(originalRequest)
+            })
+            .catch((err) => Promise.reject(err))
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
         return instance
-          .post("/api/auth/refresh-token", { refresh_token: refreshToken })
+          .post("/api/auth/refresh", { email, refresh_token: refreshToken })
           .then((resp) => {
-            const newAccess = resp?.data?.response?.access_token || resp?.data?.access_token || null
+            const newAccess = resp?.data?.response?.access_token
             if (newAccess) {
-              // save new token in the same storage mechanism
               try {
                 saveToken(newAccess, !!localStorage.getItem("wowcap_refresh_token"))
-              } catch (e) {}
-              // update header and retry original request
+              } catch {}
+              processRefreshQueue(null, newAccess)
               if (originalRequest.headers) originalRequest.headers["Authorization"] = `Bearer ${newAccess}`
               return instance(originalRequest)
             }
-
-            // Refresh failed - clear tokens
-            clearTokens()
-            if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
-            toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
-            return Promise.reject(error)
+            throw new Error("No access token in refresh response")
           })
           .catch((refreshErr) => {
-            clearTokens()
-            if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
-            toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
+            processRefreshQueue(refreshErr, null)
+            handleAuthFailure()
             return Promise.reject(refreshErr)
           })
+          .finally(() => {
+            isRefreshing = false
+          })
       } catch (e) {
-        clearTokens()
-        if (typeof window !== "undefined") window.dispatchEvent(new Event("authStateChanged"))
-        toast({ title: "Session expired", description: "Please login again", variant: "destructive" })
+        handleAuthFailure()
         return Promise.reject(error)
       }
     }
