@@ -164,3 +164,15 @@ export async function removeWishlistItem(
     throw err
   }
 }
+
+// Change Password API
+export async function changePassword(oldPassword: string, newPassword: string): Promise<any> {
+  try {
+    const payload = { old_password: oldPassword, new_password: newPassword }
+    const res = await axios.post(`/api/auth/changePassword`, payload)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
