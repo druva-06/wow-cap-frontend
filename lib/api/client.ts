@@ -1,5 +1,6 @@
 import axios from "./axios"
 import type { LoginRequest, LoginApiResponse } from "./types"
+import { getToken } from "@/lib/auth"
 
 export async function login(data: LoginRequest): Promise<LoginApiResponse> {
   try {
@@ -170,6 +171,44 @@ export async function changePassword(oldPassword: string, newPassword: string): 
   try {
     const payload = { old_password: oldPassword, new_password: newPassword }
     const res = await axios.post(`/api/auth/changePassword`, payload)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+// Document Upload API
+export async function uploadDocument(
+  file: File,
+  metadata: {
+    referenceType: string
+    referenceId: number
+    documentType: string
+    category: string
+    remarks?: string
+  }
+): Promise<any> {
+  try {
+    // Get the token to ensure authorization
+    const token = typeof window !== "undefined" ? getToken() : null
+    if (!token) {
+      throw new Error("No authentication token found")
+    }
+
+    const formData = new FormData()
+    formData.append("file", file)
+    
+    // Create a blob for metadata (similar to how Postman sends it as a file)
+    const metadataBlob = new Blob([JSON.stringify(metadata)], { type: "application/json" })
+    formData.append("metadata", metadataBlob, "metadata.json")
+
+    const res = await axios.post("/api/documents/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        "Authorization": `Bearer ${token}`,
+      },
+    })
     return res.data
   } catch (err: any) {
     if (err?.response?.data) return err.response.data

@@ -48,7 +48,7 @@ import {
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { getWishlistItems, removeWishlistItem } from "@/lib/api/client"
+import { getWishlistItems, removeWishlistItem, uploadDocument } from "@/lib/api/client"
 
 interface Application {
   id: string
@@ -1560,7 +1560,7 @@ export default function DashboardPage() {
     setNewDocumentFile(file)
   }
 
-  const addDocument = () => {
+  const addDocument = async () => {
     if (!newDocumentName.trim()) {
       setDocumentError("Please enter document name")
       return
@@ -1576,34 +1576,102 @@ export default function DashboardPage() {
       return
     }
 
-    const newDoc: Document = {
-      id: Date.now(),
-      name: newDocumentName.trim(),
-      status: "uploaded",
-      required: false,
-      uploadDate: new Date().toISOString().split("T")[0],
-      size: `${(newDocumentFile.size / (1024 * 1024)).toFixed(1)} MB`,
-      type: newDocumentFile.type.includes("pdf")
-        ? "PDF"
-        : newDocumentFile.type.includes("image")
-          ? "Image"
-          : "Document",
-      category: newDocumentCategory,
-      comments: newDocumentRemarks.trim() || undefined,
-      file: newDocumentFile,
+    try {
+      setLoading(true)
+      setDocumentError("")
+
+      // Get user data from localStorage
+      const userData = localStorage.getItem("wowcap_user")
+      const parsedUserData = userData ? JSON.parse(userData) : null
+
+      // Get user ID - try multiple fields
+      const userId = parsedUserData?.studentId || parsedUserData?.id || user?.studentId || (user as any)?.id
+
+      if (!userId) {
+        setDocumentError("User information not available. Please login again.")
+        setLoading(false)
+        return
+      }
+
+      // Extract numeric ID from studentId (e.g., "WC15" -> 15)
+      let numericId: number
+      if (typeof userId === "string" && userId.startsWith("WC")) {
+        // Extract number from "WC15" format
+        const numPart = userId.replace(/^WC/, "")
+        numericId = Number.parseInt(numPart, 10)
+        if (isNaN(numericId)) {
+          setDocumentError("Invalid student ID format")
+          setLoading(false)
+          return
+        }
+      } else if (typeof userId === "number") {
+        numericId = userId
+      } else {
+        numericId = Number.parseInt(String(userId), 10)
+        if (isNaN(numericId)) {
+          setDocumentError("Invalid user ID format")
+          setLoading(false)
+          return
+        }
+      }
+
+      // Get user role from localStorage or default to STUDENT
+      const userRole = parsedUserData?.role || parsedUserData?.userType || "STUDENT"
+
+      // Use the document name as documentType (as required by the API)
+      const documentType = newDocumentName.trim().toLowerCase().replace(/\s+/g, "_")
+
+      const metadata = {
+        referenceType: userRole.toUpperCase(),
+        referenceId: numericId,
+        documentType: documentType,
+        category: newDocumentCategory,
+        remarks: newDocumentRemarks.trim() || undefined,
+      }
+
+      // Call the upload API
+      const response = await uploadDocument(newDocumentFile, metadata)
+
+      if (response.success || response.status === "success" || !response.error) {
+        const newDoc: Document = {
+          id: Date.now(),
+          name: newDocumentName.trim(),
+          status: "uploaded",
+          required: false,
+          uploadDate: new Date().toISOString().split("T")[0],
+          size: `${(newDocumentFile.size / (1024 * 1024)).toFixed(1)} MB`,
+          type: newDocumentFile.type.includes("pdf")
+            ? "PDF"
+            : newDocumentFile.type.includes("image")
+              ? "Image"
+              : "Document",
+          category: newDocumentCategory,
+          comments: newDocumentRemarks.trim() || undefined,
+          file: newDocumentFile,
+        }
+
+        setDocuments([...documents, newDoc])
+
+        // Reset form
+        setNewDocumentName("")
+        setNewDocumentCategory("")
+        setNewDocumentRemarks("")
+        setNewDocumentFile(null)
+        setDocumentError("")
+        setAddDocumentOpen(false)
+
+        showToast("Document Uploaded", `${newDocumentName} has been uploaded successfully`)
+      } else {
+        setDocumentError(response.message || response.error || "Failed to upload document. Please try again.")
+      }
+    } catch (error: any) {
+      console.error("Document upload error:", error)
+      setDocumentError(
+        error?.response?.data?.message || error?.message || "Failed to upload document. Please try again."
+      )
+    } finally {
+      setLoading(false)
     }
-
-    setDocuments([...documents, newDoc])
-
-    // Reset form
-    setNewDocumentName("")
-    setNewDocumentCategory("")
-    setNewDocumentRemarks("")
-    setNewDocumentFile(null)
-    setDocumentError("")
-    setAddDocumentOpen(false)
-
-    showToast("Document Added", `${newDocumentName} has been uploaded successfully`)
   }
 
   const updateDocumentStatus = (id: number, status: Document["status"]) => {
@@ -2957,10 +3025,26 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="flex space-x-3 mt-6">
-                    <Button onClick={addDocument} className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none">
-                      Upload Document
+                    <Button
+                      onClick={addDocument}
+                      className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Uploading...
+                        </>
+                      ) : (
+                        "Upload Document"
+                      )}
                     </Button>
-                    <Button variant="outline" onClick={() => setAddDocumentOpen(false)} className="flex-1 sm:flex-none">
+                    <Button
+                      variant="outline"
+                      onClick={() => setAddDocumentOpen(false)}
+                      className="flex-1 sm:flex-none"
+                      disabled={loading}
+                    >
                       Cancel
                     </Button>
                   </div>
