@@ -3400,32 +3400,32 @@ export default function DashboardPage() {
                       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                         <div className="flex items-start space-x-3">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${documentToDelete.status === "verified"
-                              ? "bg-green-100"
-                              : documentToDelete.status === "pending"
-                                ? "bg-yellow-100"
-                                : documentToDelete.status === "rejected"
-                                  ? "bg-red-100"
-                                  : "bg-blue-100"
+                            ? "bg-green-100"
+                            : documentToDelete.status === "pending"
+                              ? "bg-yellow-100"
+                              : documentToDelete.status === "rejected"
+                                ? "bg-red-100"
+                                : "bg-blue-100"
                             }`}>
                             <FileText className={`w-5 h-5 ${documentToDelete.status === "verified"
-                                ? "text-green-600"
-                                : documentToDelete.status === "pending"
-                                  ? "text-yellow-600"
-                                  : documentToDelete.status === "rejected"
-                                    ? "text-red-600"
-                                    : "text-blue-600"
+                              ? "text-green-600"
+                              : documentToDelete.status === "pending"
+                                ? "text-yellow-600"
+                                : documentToDelete.status === "rejected"
+                                  ? "text-red-600"
+                                  : "text-blue-600"
                               }`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-gray-900 truncate">{documentToDelete.name}</h4>
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-xs px-2 py-0.5 rounded-full ${documentToDelete.status === "verified"
-                                  ? "bg-green-100 text-green-800"
-                                  : documentToDelete.status === "pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : documentToDelete.status === "rejected"
-                                      ? "bg-red-100 text-red-800"
-                                      : "bg-blue-100 text-blue-800"
+                                ? "bg-green-100 text-green-800"
+                                : documentToDelete.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : documentToDelete.status === "rejected"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-blue-100 text-blue-800"
                                 }`}>
                                 {documentToDelete.status.charAt(0).toUpperCase() + documentToDelete.status.slice(1)}
                               </span>
