@@ -215,3 +215,19 @@ export async function uploadDocument(
     throw err
   }
 }
+
+// Document List API
+export async function getDocumentsList(referenceType: string, referenceId: number): Promise<any> {
+  try {
+    const res = await axios.get("/api/documents/list", {
+      params: {
+        referenceType,
+        referenceId,
+      },
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}

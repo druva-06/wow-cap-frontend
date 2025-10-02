@@ -48,7 +48,7 @@ import {
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { getWishlistItems, removeWishlistItem, uploadDocument } from "@/lib/api/client"
+import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList } from "@/lib/api/client"
 
 interface Application {
   id: string
@@ -1007,6 +1007,10 @@ export default function DashboardPage() {
   // Track in-flight removal calls per wishlist item id
   const [wishlistRemoving, setWishlistRemoving] = useState<Record<number, boolean>>({})
 
+  // Documents loading and error states
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
+
   const [expandedApplications, setExpandedApplications] = useState<Set<string>>(new Set())
 
   const toggleApplicationExpansion = (applicationId: string) => {
@@ -1200,11 +1204,7 @@ export default function DashboardPage() {
   }, [])
 
   // Save data to localStorage whenever state changes
-  useEffect(() => {
-    if (documents.length > 0) {
-      localStorage.setItem("wowcap_documents", JSON.stringify(documents))
-    }
-  }, [documents])
+  // Note: Documents are NOT saved to localStorage - they're fetched fresh from API
 
   useEffect(() => {
     if (applications.length > 0) {
@@ -1232,6 +1232,82 @@ export default function DashboardPage() {
       generateSmartRecommendations(userData)
     }
   }, [])
+
+  // Load documents when documents tab is active (and on retry)
+  const loadDocuments = useCallback(async () => {
+    const isDocumentsTab = activeTab === "documents"
+    if (!isDocumentsTab) return
+    if (!user) return
+
+    // Get user data from localStorage
+    const userData = localStorage.getItem("wowcap_user")
+    const parsedUserData = userData ? JSON.parse(userData) : null
+
+    // Get user ID - try multiple fields
+    const userId = parsedUserData?.studentId || parsedUserData?.id || user?.studentId || (user as any)?.id
+
+    if (!userId) {
+      setDocumentsError("User ID not available")
+      return
+    }
+
+    // Extract numeric ID from studentId (e.g., "WC15" -> 15)
+    let numericId: number
+    if (typeof userId === "string" && userId.startsWith("WC")) {
+      const numPart = userId.replace(/^WC/, "")
+      numericId = Number.parseInt(numPart, 10)
+    } else if (typeof userId === "number") {
+      numericId = userId
+    } else {
+      numericId = Number.parseInt(String(userId), 10)
+    }
+
+    if (isNaN(numericId)) {
+      setDocumentsError("Invalid user ID format")
+      return
+    }
+
+    try {
+      setDocumentsLoading(true)
+      setDocumentsError(null)
+
+      // Get user role from localStorage or default to STUDENT
+      const userRole = parsedUserData?.role || parsedUserData?.userType || "STUDENT"
+
+      // Fetch documents list
+      const response = await getDocumentsList(userRole.toUpperCase(), numericId)
+
+      if (response?.success && Array.isArray(response?.response)) {
+        // Map API response to Document interface
+        const fetchedDocuments = response.response.map((doc: any) => ({
+          id: doc.id,
+          name: doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1),
+          status: doc.documentStatus.toLowerCase() as "uploaded" | "pending" | "missing" | "verified" | "rejected",
+          required: false,
+          uploadDate: new Date(doc.uploadedAt).toISOString().split("T")[0],
+          size: "", // Size not provided by API
+          type: "PDF", // Default to PDF
+          category: doc.category,
+          url: doc.fileUrl,
+          comments: doc.remarks,
+        }))
+
+        setDocuments(fetchedDocuments)
+      } else {
+        setDocuments([])
+        setDocumentsError(response?.message || "Failed to load documents")
+      }
+    } catch (e: any) {
+      setDocumentsError(e?.response?.data?.message || e?.message || "Failed to load documents")
+      setDocuments([])
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [activeTab, user])
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   const generateSmartRecommendations = (profile: any) => {
     const mockRecommendations = [
@@ -1272,7 +1348,6 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     localStorage.removeItem("wowcap_user")
-    localStorage.removeItem("wowcap_documents")
     localStorage.removeItem("wowcap_applications")
     localStorage.removeItem("wowcap_tasks")
     router.push("/")
@@ -1633,25 +1708,6 @@ export default function DashboardPage() {
       const response = await uploadDocument(newDocumentFile, metadata)
 
       if (response.success || response.status === "success" || !response.error) {
-        const newDoc: Document = {
-          id: Date.now(),
-          name: newDocumentName.trim(),
-          status: "uploaded",
-          required: false,
-          uploadDate: new Date().toISOString().split("T")[0],
-          size: `${(newDocumentFile.size / (1024 * 1024)).toFixed(1)} MB`,
-          type: newDocumentFile.type.includes("pdf")
-            ? "PDF"
-            : newDocumentFile.type.includes("image")
-              ? "Image"
-              : "Document",
-          category: newDocumentCategory,
-          comments: newDocumentRemarks.trim() || undefined,
-          file: newDocumentFile,
-        }
-
-        setDocuments([...documents, newDoc])
-
         // Reset form
         setNewDocumentName("")
         setNewDocumentCategory("")
@@ -1661,6 +1717,9 @@ export default function DashboardPage() {
         setAddDocumentOpen(false)
 
         showToast("Document Uploaded", `${newDocumentName} has been uploaded successfully`)
+
+        // Refresh the documents list using the loadDocuments callback
+        await loadDocuments()
       } else {
         setDocumentError(response.message || response.error || "Failed to upload document. Please try again.")
       }
@@ -2872,96 +2931,161 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Document List with Edit, Download, Preview actions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="p-6">
+            {/* Loading State */}
+            {documentsLoading && (
+              <div className="bg-white rounded-xl border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                </div>
                 <div className="space-y-4">
-                  {documents.map((document) => {
-                    const IconComponent = getDocumentIcon(document.type)
-                    return (
-                      <div
-                        key={document.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow space-y-3 sm:space-y-0"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className={`w-12 h-12 rounded-lg flex items-center justify-center ${document.status === "verified"
-                              ? "bg-green-100"
-                              : document.status === "pending"
-                                ? "bg-yellow-100"
-                                : document.status === "rejected"
-                                  ? "bg-red-100"
-                                  : "bg-blue-100"
-                              }`}
-                          >
-                            <IconComponent
-                              className={`w-6 h-6 ${document.status === "verified"
-                                ? "text-green-600"
-                                : document.status === "pending"
-                                  ? "text-yellow-600"
-                                  : document.status === "rejected"
-                                    ? "text-red-600"
-                                    : "text-blue-600"
-                                }`}
-                            />
-                          </div>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="border rounded-xl p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center space-x-4 flex-1">
+                          <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse" />
                           <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">{document.name}</h4>
-                            <p className="text-sm text-gray-600">{document.category}</p>
-                            <div className="flex items-center space-x-4 mt-2">
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full ${document.status === "verified"
-                                  ? "bg-green-100 text-green-800"
-                                  : document.status === "pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : document.status === "rejected"
-                                      ? "bg-red-100 text-red-800"
-                                      : "bg-blue-100 text-blue-800"
-                                  }`}
-                              >
-                                {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
-                              </span>
-                              {document.size && <span className="text-xs text-gray-500">{document.size}</span>}
-                              {document.uploadDate && (
-                                <span className="text-xs text-gray-500">Uploaded: {document.uploadDate}</span>
-                              )}
-                            </div>
-                            {document.comments && <p className="text-xs text-gray-600 mt-1">{document.comments}</p>}
+                            <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                            <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
                           </div>
                         </div>
-
-                        <div className="flex items-center space-x-2 w-full sm:w-auto">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
-                          >
-                            <FileText className="w-4 h-4 sm:mr-1" />
-                            <span className="hidden sm:inline ml-1">Edit</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
-                          >
-                            <Download className="w-4 h-4 sm:mr-1" />
-                            <span className="hidden sm:inline ml-1">Download</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
-                          >
-                            <Eye className="w-4 h-4 sm:mr-1" />
-                            <span className="hidden sm:inline ml-1">Preview</span>
-                          </Button>
+                        <div className="flex gap-2">
+                          <div className="h-10 w-20 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-10 w-20 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-10 w-20 bg-gray-200 rounded animate-pulse" />
                         </div>
                       </div>
-                    )
-                  })}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 flex justify-center">
+                  <Button variant="outline" className="border-blue-200 text-blue-600" onClick={loadDocuments}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Retry Now
+                  </Button>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Error State */}
+            {documentsError && !documentsLoading && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+                <div className="flex items-center">
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  <span>{documentsError}</span>
+                </div>
+                <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100" onClick={loadDocuments}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!documentsLoading && !documentsError && documents.length === 0 && (
+              <div className="bg-white rounded-xl border p-8 text-center">
+                <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <div className="text-gray-900 font-medium mb-1">No documents uploaded yet</div>
+                <div className="text-gray-600 mb-4">Start uploading your documents to track them here.</div>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setAddDocumentOpen(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload First Document
+                </Button>
+              </div>
+            )}
+
+            {/* Document List with Edit, Download, Preview actions */}
+            {!documentsLoading && !documentsError && documents.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {documents.map((document) => {
+                      const IconComponent = getDocumentIcon(document.type)
+                      return (
+                        <div
+                          key={document.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow space-y-3 sm:space-y-0"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className={`w-12 h-12 rounded-lg flex items-center justify-center ${document.status === "verified"
+                                ? "bg-green-100"
+                                : document.status === "pending"
+                                  ? "bg-yellow-100"
+                                  : document.status === "rejected"
+                                    ? "bg-red-100"
+                                    : "bg-blue-100"
+                                }`}
+                            >
+                              <IconComponent
+                                className={`w-6 h-6 ${document.status === "verified"
+                                  ? "text-green-600"
+                                  : document.status === "pending"
+                                    ? "text-yellow-600"
+                                    : document.status === "rejected"
+                                      ? "text-red-600"
+                                      : "text-blue-600"
+                                  }`}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900">{document.name}</h4>
+                              <p className="text-sm text-gray-600">{document.category}</p>
+                              <div className="flex items-center space-x-4 mt-2">
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${document.status === "verified"
+                                    ? "bg-green-100 text-green-800"
+                                    : document.status === "pending"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : document.status === "rejected"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
+                                >
+                                  {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                                </span>
+                                {document.size && <span className="text-xs text-gray-500">{document.size}</span>}
+                                {document.uploadDate && (
+                                  <span className="text-xs text-gray-500">Uploaded: {document.uploadDate}</span>
+                                )}
+                              </div>
+                              {document.comments && <p className="text-xs text-gray-600 mt-1">{document.comments}</p>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 w-full sm:w-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
+                            >
+                              <FileText className="w-4 h-4 sm:mr-1" />
+                              <span className="hidden sm:inline ml-1">Edit</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
+                            >
+                              <Download className="w-4 h-4 sm:mr-1" />
+                              <span className="hidden sm:inline ml-1">Download</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
+                            >
+                              <Eye className="w-4 h-4 sm:mr-1" />
+                              <span className="hidden sm:inline ml-1">Preview</span>
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Upload Document Modal */}
             {addDocumentOpen && (
