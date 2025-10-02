@@ -45,10 +45,11 @@ import {
   Plus,
   RotateCcw,
   AlertTriangle,
+  Trash2,
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList } from "@/lib/api/client"
+import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument } from "@/lib/api/client"
 
 interface Application {
   id: string
@@ -501,6 +502,9 @@ export default function DashboardPage() {
   const [addDocumentOpen, setAddDocumentOpen] = useState(false)
   const [previewDocumentOpen, setPreviewDocumentOpen] = useState(false)
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
+  const [deletingDocument, setDeletingDocument] = useState(false)
   const [uploadForm, setUploadForm] = useState({
     name: "",
     category: "Academic",
@@ -1689,10 +1693,43 @@ export default function DashboardPage() {
     showToast("Document Updated", "Document status has been updated")
   }
 
-  const deleteDocument = (id: number) => {
-    if (confirm("Are you sure you want to delete this document?")) {
-      setDocuments(documents.filter((doc) => doc.id !== id))
-      showToast("Document Deleted", "Document has been removed")
+  const handleDeleteClick = (document: Document) => {
+    setDocumentToDelete(document)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setDocumentToDelete(null)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!documentToDelete) return
+
+    try {
+      setDeletingDocument(true)
+
+      // Call delete API
+      const response = await deleteDocument(documentToDelete.id)
+
+      if (response.success || response.statusCode === 200) {
+        // Remove from state on success
+        setDocuments(documents.filter((doc) => doc.id !== documentToDelete.id))
+        showToast("Document Deleted", `${documentToDelete.name} has been removed successfully`)
+
+        setDeleteConfirmOpen(false)
+        setDocumentToDelete(null)
+      } else {
+        throw new Error(response.message || "Failed to delete document")
+      }
+    } catch (error: any) {
+      console.error("Delete error:", error)
+      showToast(
+        "Delete Failed",
+        error?.response?.data?.message || error?.message || "Failed to delete document. Please try again."
+      )
+    } finally {
+      setDeletingDocument(false)
     }
   }
 
@@ -3078,6 +3115,20 @@ export default function DashboardPage() {
                               <Eye className="w-4 h-4 sm:mr-1" />
                               <span className="hidden sm:inline ml-1">Preview</span>
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleDeleteClick(document)
+                              }}
+                              className="border-red-600 text-red-600 hover:bg-red-50 bg-transparent focus:text-red-600 active:text-red-600 focus:border-red-600 active:border-red-600 focus-visible:text-red-600 focus-visible:border-red-600 flex-1 sm:flex-none"
+                            >
+                              <Trash2 className="w-4 h-4 sm:mr-1" />
+                              <span className="hidden sm:inline ml-1">Delete</span>
+                            </Button>
                           </div>
                         </div>
                       )
@@ -3315,6 +3366,120 @@ export default function DashboardPage() {
                       className="border-gray-300 text-xs"
                     >
                       Close Preview
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmOpen && documentToDelete && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+                  {/* Modal Header */}
+                  <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                        <AlertTriangle className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">Delete Document</h3>
+                        <p className="text-sm text-red-100">This action cannot be undone</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="px-6 py-5">
+                    <div className="mb-4">
+                      <p className="text-gray-700 mb-4">
+                        Are you sure you want to delete this document? This will permanently remove it from your records.
+                      </p>
+
+                      {/* Document Info Card */}
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex items-start space-x-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${documentToDelete.status === "verified"
+                              ? "bg-green-100"
+                              : documentToDelete.status === "pending"
+                                ? "bg-yellow-100"
+                                : documentToDelete.status === "rejected"
+                                  ? "bg-red-100"
+                                  : "bg-blue-100"
+                            }`}>
+                            <FileText className={`w-5 h-5 ${documentToDelete.status === "verified"
+                                ? "text-green-600"
+                                : documentToDelete.status === "pending"
+                                  ? "text-yellow-600"
+                                  : documentToDelete.status === "rejected"
+                                    ? "text-red-600"
+                                    : "text-blue-600"
+                              }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 truncate">{documentToDelete.name}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${documentToDelete.status === "verified"
+                                  ? "bg-green-100 text-green-800"
+                                  : documentToDelete.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : documentToDelete.status === "rejected"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-blue-100 text-blue-800"
+                                }`}>
+                                {documentToDelete.status.charAt(0).toUpperCase() + documentToDelete.status.slice(1)}
+                              </span>
+                              <span className="text-xs text-gray-500">•</span>
+                              <span className="text-xs text-gray-600">{documentToDelete.category}</span>
+                            </div>
+                            {documentToDelete.uploadDate && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Uploaded: {documentToDelete.uploadDate}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Warning Message */}
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
+                      <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-900">Warning</p>
+                        <p className="text-xs text-red-700">
+                          Once deleted, this document cannot be recovered. Make sure you have a backup if needed.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="bg-gray-50 px-6 py-4 flex items-center justify-end space-x-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleCancelDelete}
+                      disabled={deletingDocument}
+                      className="border-gray-300 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleConfirmDelete}
+                      disabled={deletingDocument}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {deletingDocument ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Document
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>

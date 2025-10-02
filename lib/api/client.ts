@@ -231,3 +231,24 @@ export async function getDocumentsList(referenceType: string, referenceId: numbe
     throw err
   }
 }
+
+// Document Delete API
+export async function deleteDocument(documentId: number): Promise<any> {
+  try {
+    // Get the token to ensure authorization
+    const token = typeof window !== "undefined" ? getToken() : null
+    if (!token) {
+      throw new Error("No authentication token found")
+    }
+
+    const res = await axios.delete(`/api/documents/delete/${documentId}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
