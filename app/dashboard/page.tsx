@@ -499,6 +499,8 @@ export default function DashboardPage() {
 
   // Document state
   const [addDocumentOpen, setAddDocumentOpen] = useState(false)
+  const [previewDocumentOpen, setPreviewDocumentOpen] = useState(false)
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
   const [uploadForm, setUploadForm] = useState({
     name: "",
     category: "Academic",
@@ -527,69 +529,8 @@ export default function DashboardPage() {
   ])
   const [newMessage, setNewMessage] = useState("")
 
-  // Documents state
-  const [documents, setDocuments] = useState<Document[]>([
-    {
-      id: 1,
-      name: "10th Marksheet",
-      status: "verified",
-      required: true,
-      uploadDate: "2024-01-15",
-      size: "2.3 MB",
-      type: "PDF",
-      category: "Academic",
-    },
-    {
-      id: 2,
-      name: "12th Marksheet",
-      status: "verified",
-      required: true,
-      uploadDate: "2024-01-15",
-      size: "1.8 MB",
-      type: "PDF",
-      category: "Academic",
-    },
-    {
-      id: 3,
-      name: "Degree Certificate",
-      status: "pending",
-      required: true,
-      uploadDate: "2024-01-20",
-      size: "3.1 MB",
-      type: "PDF",
-      category: "Academic",
-      comments: "Under verification by university",
-    },
-    {
-      id: 4,
-      name: "Passport",
-      status: "verified",
-      required: true,
-      uploadDate: "2024-01-10",
-      size: "1.2 MB",
-      type: "PDF",
-      category: "Personal",
-    },
-    {
-      id: 5,
-      name: "IELTS Score Report",
-      status: "missing",
-      required: false,
-      category: "Test Scores",
-      comments: "Please upload your latest IELTS score report",
-    },
-    {
-      id: 6,
-      name: "Statement of Purpose",
-      status: "rejected",
-      required: true,
-      uploadDate: "2024-01-18",
-      size: "0.8 MB",
-      type: "PDF",
-      category: "Application",
-      comments: "Please revise and resubmit. Focus more on career goals.",
-    },
-  ])
+  // Documents state - Initialize empty, will be loaded from API
+  const [documents, setDocuments] = useState<Document[]>([])
 
   // Shortlist state
   const [shortlistFilter, setShortlistFilter] = useState("all")
@@ -1763,6 +1704,69 @@ export default function DashboardPage() {
     return FileText
   }
 
+  const handleDownloadDocument = async (document: Document, event?: React.MouseEvent) => {
+    // Prevent any default behavior
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    if (!document.url) {
+      showToast("Download Failed", "Document URL not available")
+      return
+    }
+
+    try {
+      showToast("Downloading", `Downloading ${document.name}...`)
+
+      // Fetch the file
+      const response = await fetch(document.url)
+      const blob = await response.blob()
+
+      // Create a temporary URL and trigger download
+      const url = window.URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = url
+
+      // Extract filename from URL or use document name
+      const urlParts = document.url.split('/')
+      const filename = urlParts[urlParts.length - 1] || `${document.name}.pdf`
+      link.download = filename
+
+      window.document.body.appendChild(link)
+      link.click()
+      window.document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      showToast("Download Complete", `${document.name} downloaded successfully`)
+    } catch (error) {
+      console.error("Download error:", error)
+      showToast("Download Failed", "Failed to download document. Please try again.")
+    }
+  }
+
+  const handlePreviewDocument = (document: Document, event?: React.MouseEvent) => {
+    // Prevent any default behavior
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    if (!document.url) {
+      showToast("Preview Failed", "Document URL not available")
+      return
+    }
+
+    // Open preview modal instead of new tab
+    setPreviewDocument(document)
+    setPreviewDocumentOpen(true)
+  }
+
+  const handleClosePreview = () => {
+    setPreviewDocumentOpen(false)
+    setPreviewDocument(null)
+  }
+
   // Shortlist functions
   const toggleUniversitySelection = (universityId: number) => {
     const updatedExpert = expertSuggestions.map((uni) =>
@@ -2916,7 +2920,7 @@ export default function DashboardPage() {
 
       case "documents":
         return (
-          <div className="space-y-6">
+          <div className="">
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -3057,15 +3061,9 @@ export default function DashboardPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
-                            >
-                              <FileText className="w-4 h-4 sm:mr-1" />
-                              <span className="hidden sm:inline ml-1">Edit</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
+                              type="button"
+                              onClick={(e) => handleDownloadDocument(document, e)}
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent focus:text-blue-600 active:text-blue-600 focus:border-blue-600 active:border-blue-600 focus-visible:text-blue-600 focus-visible:border-blue-600 flex-1 sm:flex-none"
                             >
                               <Download className="w-4 h-4 sm:mr-1" />
                               <span className="hidden sm:inline ml-1">Download</span>
@@ -3073,7 +3071,9 @@ export default function DashboardPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent flex-1 sm:flex-none"
+                              type="button"
+                              onClick={(e) => handlePreviewDocument(document, e)}
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent focus:text-blue-600 active:text-blue-600 focus:border-blue-600 active:border-blue-600 focus-visible:text-blue-600 focus-visible:border-blue-600 flex-1 sm:flex-none"
                             >
                               <Eye className="w-4 h-4 sm:mr-1" />
                               <span className="hidden sm:inline ml-1">Preview</span>
@@ -3170,6 +3170,151 @@ export default function DashboardPage() {
                       disabled={loading}
                     >
                       Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Document Preview Modal */}
+            {previewDocumentOpen && previewDocument && (
+              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] max-h-screen flex flex-col shadow-2xl overflow-hidden m-4">
+                  {/* Modal Header - Compact */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${previewDocument.status === "verified"
+                        ? "bg-green-100"
+                        : previewDocument.status === "pending"
+                          ? "bg-yellow-100"
+                          : previewDocument.status === "rejected"
+                            ? "bg-red-100"
+                            : "bg-blue-100"
+                        }`}>
+                        <FileText className={`w-4 h-4 ${previewDocument.status === "verified"
+                          ? "text-green-600"
+                          : previewDocument.status === "pending"
+                            ? "text-yellow-600"
+                            : previewDocument.status === "rejected"
+                              ? "text-red-600"
+                              : "text-blue-600"
+                          }`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-semibold text-gray-900 truncate">{previewDocument.name}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs flex-shrink-0 ${previewDocument.status === "verified"
+                            ? "bg-green-100 text-green-800"
+                            : previewDocument.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : previewDocument.status === "rejected"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}>
+                            {previewDocument.status.charAt(0).toUpperCase() + previewDocument.status.slice(1)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                          <span>{previewDocument.category}</span>
+                          {previewDocument.uploadDate && (
+                            <>
+                              <span>•</span>
+                              <span>{previewDocument.uploadDate}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => handleDownloadDocument(previewDocument, e)}
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        <span className="hidden sm:inline">Download</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClosePreview}
+                        className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Document Info - Remarks (if exists) */}
+                  {previewDocument.comments && (
+                    <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                      <div className="flex items-start space-x-2">
+                        <MessageCircle className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-blue-900">Remarks:</p>
+                          <p className="text-xs text-blue-700">{previewDocument.comments}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Document Preview Area */}
+                  <div className="flex-1 overflow-hidden bg-gray-100 relative">
+                    {/* Try embedding with Google Docs Viewer for better compatibility */}
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewDocument.url)}&embedded=true`}
+                      className="w-full h-full border-0"
+                      title={`Preview of ${previewDocument.name}`}
+                      allow="fullscreen"
+                    />
+                    {/* Fallback options overlay */}
+                    <div className="absolute top-4 right-4 z-10">
+                      <div className="bg-white rounded-lg shadow-lg p-3 space-y-2">
+                        <p className="text-xs text-gray-600 mb-2">Preview not working?</p>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(previewDocument.url, '_blank', 'noopener,noreferrer')}
+                            className="text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Open in New Tab
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={(e) => handleDownloadDocument(previewDocument, e)}
+                            className="bg-blue-600 hover:bg-blue-700 text-xs"
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer - Compact */}
+                  <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-gray-50">
+                    <div className="flex items-center space-x-3 text-xs text-gray-600">
+                      {previewDocument.size && (
+                        <div className="flex items-center space-x-1">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>{previewDocument.size}</span>
+                        </div>
+                      )}
+                      {previewDocument.type && (
+                        <span className="font-medium">{previewDocument.type}</span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClosePreview}
+                      className="border-gray-300 text-xs"
+                    >
+                      Close Preview
                     </Button>
                   </div>
                 </div>
