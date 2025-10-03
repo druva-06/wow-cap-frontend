@@ -49,7 +49,7 @@ import {
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument, startCourseRegistration } from "@/lib/api/client"
+import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument, startCourseRegistration, getStudentRegistrations } from "@/lib/api/client"
 import { IntakeSelectionModal } from "@/components/modals/intake-selection-modal"
 
 
@@ -305,8 +305,10 @@ const sidebarItems = [
     color: "text-indigo-600",
     subtabs: [
       { id: "in-progress", label: "In Progress" },
+      { id: "pending", label: "Pending" },
       { id: "submitted", label: "Submitted" },
-      { id: "decisions", label: "Decisions" },
+      { id: "accepted", label: "Accepted" },
+      { id: "rejected", label: "Rejected" },
     ],
   },
   {
@@ -557,6 +559,11 @@ export default function DashboardPage() {
   const [showIntakeSuccess, setShowIntakeSuccess] = useState(false)
   const [successRegistrationId, setSuccessRegistrationId] = useState<string>("")
   const [successIntakeSession, setSuccessIntakeSession] = useState<string>("")
+
+  // Fetched registrations from API
+  const [fetchedRegistrations, setFetchedRegistrations] = useState<any[]>([])
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false)
+  const [registrationsError, setRegistrationsError] = useState<string | null>(null)
 
   // Applications state - Initialize with empty array, will load from localStorage
   const [applications, setApplications] = useState<Application[]>([
@@ -1129,13 +1136,49 @@ export default function DashboardPage() {
     loadWishlist()
   }, [loadWishlist])
 
+  // Load registrations when any Applications tab is active (pending, submitted, accepted, rejected)
+  const loadRegistrations = useCallback(async () => {
+    const isApplicationsTab = activeTab === "applications" &&
+      ["pending", "submitted", "accepted", "rejected"].includes(activeSubTab)
+    if (!isApplicationsTab) return
+    if (!user?.studentId) return
+    const numericStudentId = Number(String(user.studentId).replace(/\D+/g, ""))
+    if (!Number.isFinite(numericStudentId) || numericStudentId <= 0) return
+
+    try {
+      setIsLoadingRegistrations(true)
+      setRegistrationsError(null)
+      const res = await getStudentRegistrations(numericStudentId)
+      if (res?.success && Array.isArray(res?.response)) {
+        setFetchedRegistrations(res.response)
+      } else {
+        setFetchedRegistrations([])
+        setRegistrationsError(res?.message || "Failed to load registrations")
+      }
+    } catch (e: any) {
+      setRegistrationsError(e?.response?.data?.message || e?.message || "Failed to load registrations")
+      setFetchedRegistrations([])
+    } finally {
+      setIsLoadingRegistrations(false)
+    }
+  }, [activeTab, activeSubTab, user?.studentId])
+
+  useEffect(() => {
+    loadRegistrations()
+  }, [loadRegistrations])
+
   const handleTabChange = (tabId: string, subTabId = "") => {
     setActiveTab(tabId)
-    const defaultSub = tabId === "shortlist" && !subTabId ? "my-saved" : ""
+    let defaultSub = ""
+    if (tabId === "shortlist" && !subTabId) {
+      defaultSub = "my-saved"
+    } else if (tabId === "applications" && !subTabId) {
+      defaultSub = "submitted"
+    }
     const effectiveSubTab = subTabId || defaultSub
     setActiveSubTab(effectiveSubTab)
 
-    // Use new URL structure and default to my-saved for shortlist
+    // Use new URL structure and default to my-saved for shortlist and submitted for applications
     const newPath = effectiveSubTab
       ? `/student-dashboard/${tabId}/${effectiveSubTab}`
       : `/student-dashboard/${tabId}`
@@ -1376,9 +1419,11 @@ export default function DashboardPage() {
       icon: Send,
       color: "text-indigo-600",
       subtabs: [
-        { id: "in-progress", label: "In Progress" },
+        // { id: "in-progress", label: "In Progress" },
+        // { id: "pending", label: "Pending" },
         { id: "submitted", label: "Submitted" },
-        { id: "decisions", label: "Decisions" },
+        { id: "accepted", label: "Accepted" },
+        { id: "rejected", label: "Rejected" },
       ],
     },
     {
@@ -2864,11 +2909,60 @@ export default function DashboardPage() {
               {activeSubTab === "submitted" && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Submitted Applications</h3>
-                  {applications.filter((app) => app.status === "submitted").length === 0 ? (
+
+                  {isLoadingRegistrations ? (
+                    <div className="bg-white rounded-xl border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="border rounded-xl p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse" />
+                                <div className="flex-1">
+                                  <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="h-7 w-20 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-16 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-10 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-6 flex justify-center">
+                        <Button variant="outline" className="border-blue-200 text-blue-600" onClick={loadRegistrations}>
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry Now
+                        </Button>
+                      </div>
+                    </div>
+                  ) : registrationsError ? (
                     <Card className="border-0 shadow-lg">
                       <CardContent className="p-12 text-center">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <CheckCircle className="w-8 h-8 text-green-600" />
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Applications</h4>
+                        <p className="text-gray-600 mb-4">{registrationsError}</p>
+                        <Button onClick={loadRegistrations} className="bg-blue-600 hover:bg-blue-700">
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : fetchedRegistrations.filter(r => r.status === "SUBMITTED").length === 0 ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <CheckCircle className="w-8 h-8 text-blue-600" />
                         </div>
                         <h4 className="text-lg font-semibold text-gray-900 mb-2">No Submitted Applications</h4>
                         <p className="text-gray-600 mb-6">Applications you've completed will appear here</p>
@@ -2876,89 +2970,626 @@ export default function DashboardPage() {
                     </Card>
                   ) : (
                     <div className="space-y-3">
-                      {applications
-                        .filter((app) => app.status === "submitted")
-                        .map((application) => {
-                          const isExpanded = expandedApplications.has(application.id)
-                          const stages = getStagesByStudyType(application.country)
+                      {fetchedRegistrations.filter(r => r.status === "SUBMITTED").map((registration) => {
+                        const isExpanded = expandedApplications.has(String(registration.registrationId))
+                        // Determine status badge color and text
+                        const statusConfig = {
+                          PENDING: {
+                            bg: "bg-yellow-100",
+                            text: "text-yellow-800",
+                            label: "Pending",
+                            border: "border-l-yellow-500",
+                            iconBg: "bg-yellow-100",
+                            iconColor: "text-yellow-600"
+                          },
+                          SUBMITTED: {
+                            bg: "bg-blue-100",
+                            text: "text-blue-800",
+                            label: "Submitted",
+                            border: "border-l-blue-500",
+                            iconBg: "bg-blue-100",
+                            iconColor: "text-blue-600"
+                          },
+                          APPROVED: {
+                            bg: "bg-green-100",
+                            text: "text-green-800",
+                            label: "Approved",
+                            border: "border-l-green-500",
+                            iconBg: "bg-green-100",
+                            iconColor: "text-green-600"
+                          },
+                          REJECTED: {
+                            bg: "bg-red-100",
+                            text: "text-red-800",
+                            label: "Rejected",
+                            border: "border-l-red-500",
+                            iconBg: "bg-red-100",
+                            iconColor: "text-red-600"
+                          },
+                        }[registration.status] || {
+                          bg: "bg-gray-100",
+                          text: "text-gray-800",
+                          label: registration.status,
+                          border: "border-l-gray-500",
+                          iconBg: "bg-gray-100",
+                          iconColor: "text-gray-600"
+                        }
 
-                          return (
-                            <Card
-                              key={application.id}
-                              className="border-0 shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-green-500"
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-4 flex-1">
-                                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                                      <CheckCircle className="w-6 h-6 text-green-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-gray-900 text-sm">{application.university}</h4>
-                                      <p className="text-xs text-gray-600">{application.program}</p>
-                                      <p className="text-xs text-gray-500">
-                                        {application.country} • Submitted: {application.appliedDate}
-                                      </p>
-                                    </div>
+                        // Format date
+                        const formatDate = (dateStr: string) => {
+                          try {
+                            return new Date(dateStr).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          } catch {
+                            return dateStr
+                          }
+                        }
+
+                        return (
+                          <Card
+                            key={registration.registrationId}
+                            className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${statusConfig.border}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className={`w-12 h-12 ${statusConfig.iconBg} rounded-lg flex items-center justify-center`}>
+                                    <CheckCircle className={`w-6 h-6 ${statusConfig.iconColor}`} />
                                   </div>
-
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                      Submitted
-                                    </span>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => generateApplicationPDF(application)}
-                                      className="text-xs px-2 py-1 h-7"
-                                    >
-                                      <Eye className="w-3 h-3 mr-1" />
-                                      View
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => generateApplicationPDF(application)}
-                                      className="text-xs px-2 py-1 h-7"
-                                    >
-                                      <Download className="w-3 h-3 mr-1" />
-                                      PDF
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => toggleApplicationExpansion(application.id)}
-                                      className="text-xs px-2 py-1 h-7"
-                                    >
-                                      {isExpanded ? (
-                                        <ChevronUp className="w-4 h-4" />
-                                      ) : (
-                                        <ChevronDown className="w-4 h-4" />
-                                      )}
-                                    </Button>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-gray-900 text-sm">{registration.collegeName}</h4>
+                                    <p className="text-xs text-gray-600">{registration.courseName}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Intake: {registration.intakeSession} • Applied: {formatDate(registration.createdAt)}
+                                    </p>
                                   </div>
                                 </div>
 
-                                {isExpanded && (
-                                  <div className="mt-4 pt-4 border-t border-gray-100">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div>
-                                        <span className="text-gray-600">Deadline:</span>
-                                        <span className="font-medium ml-2">{application.deadline}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-gray-600">Application Fee:</span>
-                                        <span className="font-medium ml-2">
-                                          {application.fees.currency} {application.fees.application}
-                                        </span>
-                                      </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs ${statusConfig.bg} ${statusConfig.text} px-2 py-1 rounded-full`}>
+                                    {statusConfig.label}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleApplicationExpansion(String(registration.registrationId))}
+                                    className="text-xs px-2 py-1 h-7"
+                                  >
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    {isExpanded ? "Close" : "View"}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                    <div>
+                                      <span className="text-gray-600">Registration ID:</span>
+                                      <span className="font-medium ml-2">#{registration.registrationId}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Application Year:</span>
+                                      <span className="font-medium ml-2">{registration.applicationYear}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Intake Session:</span>
+                                      <span className="font-medium ml-2">{registration.intakeSession}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Status:</span>
+                                      <span className={`font-medium ml-2 ${statusConfig.text}`}>{statusConfig.label}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.createdAt)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.updatedAt)}</span>
                                     </div>
                                   </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          )
-                        })}
+                                  {registration.remarks && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-600">Remarks:</span>
+                                      <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{registration.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === "pending" && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Applications</h3>
+
+                  {isLoadingRegistrations ? (
+                    <div className="bg-white rounded-xl border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="border rounded-xl p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse" />
+                                <div className="flex-1">
+                                  <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="h-7 w-20 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-16 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-10 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : registrationsError ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Applications</h4>
+                        <p className="text-gray-600 mb-4">{registrationsError}</p>
+                        <Button onClick={loadRegistrations} className="bg-blue-600 hover:bg-blue-700">
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : fetchedRegistrations.filter(r => r.status === "PENDING").length === 0 ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Clock className="w-8 h-8 text-yellow-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">No Pending Applications</h4>
+                        <p className="text-gray-600 mb-6">Applications in pending status will appear here</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {fetchedRegistrations.filter(r => r.status === "PENDING").map((registration) => {
+                        const isExpanded = expandedApplications.has(String(registration.registrationId))
+                        const statusConfig = {
+                          bg: "bg-yellow-100",
+                          text: "text-yellow-800",
+                          label: "Pending",
+                          border: "border-l-yellow-500",
+                          iconBg: "bg-yellow-100",
+                          iconColor: "text-yellow-600"
+                        }
+
+                        const formatDate = (dateStr: string) => {
+                          try {
+                            return new Date(dateStr).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          } catch {
+                            return dateStr
+                          }
+                        }
+
+                        return (
+                          <Card
+                            key={registration.registrationId}
+                            className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${statusConfig.border}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className={`w-12 h-12 ${statusConfig.iconBg} rounded-lg flex items-center justify-center`}>
+                                    <Clock className={`w-6 h-6 ${statusConfig.iconColor}`} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-gray-900 text-sm">{registration.collegeName}</h4>
+                                    <p className="text-xs text-gray-600">{registration.courseName}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Intake: {registration.intakeSession} • Applied: {formatDate(registration.createdAt)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs ${statusConfig.bg} ${statusConfig.text} px-2 py-1 rounded-full`}>
+                                    {statusConfig.label}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleApplicationExpansion(String(registration.registrationId))}
+                                    className="text-xs px-2 py-1 h-7"
+                                  >
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    {isExpanded ? "Close" : "View"}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                    <div>
+                                      <span className="text-gray-600">Registration ID:</span>
+                                      <span className="font-medium ml-2">#{registration.registrationId}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Application Year:</span>
+                                      <span className="font-medium ml-2">{registration.applicationYear}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Intake Session:</span>
+                                      <span className="font-medium ml-2">{registration.intakeSession}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Status:</span>
+                                      <span className={`font-medium ml-2 ${statusConfig.text}`}>{statusConfig.label}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.createdAt)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.updatedAt)}</span>
+                                    </div>
+                                  </div>
+                                  {registration.remarks && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-600">Remarks:</span>
+                                      <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{registration.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === "accepted" && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Accepted Applications</h3>
+
+                  {isLoadingRegistrations ? (
+                    <div className="bg-white rounded-xl border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="border rounded-xl p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse" />
+                                <div className="flex-1">
+                                  <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="h-7 w-20 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-16 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-10 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : registrationsError ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Applications</h4>
+                        <p className="text-gray-600 mb-4">{registrationsError}</p>
+                        <Button onClick={loadRegistrations} className="bg-blue-600 hover:bg-blue-700">
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : fetchedRegistrations.filter(r => r.status === "APPROVED" || r.status === "ACCEPTED").length === 0 ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Award className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">No Accepted Applications</h4>
+                        <p className="text-gray-600 mb-6">Accepted applications will appear here</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {fetchedRegistrations.filter(r => r.status === "APPROVED" || r.status === "ACCEPTED").map((registration) => {
+                        const isExpanded = expandedApplications.has(String(registration.registrationId))
+                        const statusConfig = {
+                          bg: "bg-green-100",
+                          text: "text-green-800",
+                          label: "Accepted",
+                          border: "border-l-green-500",
+                          iconBg: "bg-green-100",
+                          iconColor: "text-green-600"
+                        }
+
+                        const formatDate = (dateStr: string) => {
+                          try {
+                            return new Date(dateStr).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          } catch {
+                            return dateStr
+                          }
+                        }
+
+                        return (
+                          <Card
+                            key={registration.registrationId}
+                            className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${statusConfig.border}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className={`w-12 h-12 ${statusConfig.iconBg} rounded-lg flex items-center justify-center`}>
+                                    <Award className={`w-6 h-6 ${statusConfig.iconColor}`} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-gray-900 text-sm">{registration.collegeName}</h4>
+                                    <p className="text-xs text-gray-600">{registration.courseName}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Intake: {registration.intakeSession} • Applied: {formatDate(registration.createdAt)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs ${statusConfig.bg} ${statusConfig.text} px-2 py-1 rounded-full`}>
+                                    {statusConfig.label}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleApplicationExpansion(String(registration.registrationId))}
+                                    className="text-xs px-2 py-1 h-7"
+                                  >
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    {isExpanded ? "Close" : "View"}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                    <div>
+                                      <span className="text-gray-600">Registration ID:</span>
+                                      <span className="font-medium ml-2">#{registration.registrationId}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Application Year:</span>
+                                      <span className="font-medium ml-2">{registration.applicationYear}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Intake Session:</span>
+                                      <span className="font-medium ml-2">{registration.intakeSession}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Status:</span>
+                                      <span className={`font-medium ml-2 ${statusConfig.text}`}>{statusConfig.label}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.createdAt)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.updatedAt)}</span>
+                                    </div>
+                                  </div>
+                                  {registration.remarks && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-600">Remarks:</span>
+                                      <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{registration.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === "rejected" && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Rejected Applications</h3>
+
+                  {isLoadingRegistrations ? (
+                    <div className="bg-white rounded-xl border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="border rounded-xl p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse" />
+                                <div className="flex-1">
+                                  <div className="h-5 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                                  <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="h-7 w-20 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-16 bg-gray-200 rounded animate-pulse" />
+                                <div className="h-7 w-10 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : registrationsError ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Applications</h4>
+                        <p className="text-gray-600 mb-4">{registrationsError}</p>
+                        <Button onClick={loadRegistrations} className="bg-blue-600 hover:bg-blue-700">
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : fetchedRegistrations.filter(r => r.status === "REJECTED").length === 0 ? (
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <X className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">No Rejected Applications</h4>
+                        <p className="text-gray-600 mb-6">Rejected applications will appear here</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {fetchedRegistrations.filter(r => r.status === "REJECTED").map((registration) => {
+                        const isExpanded = expandedApplications.has(String(registration.registrationId))
+                        const statusConfig = {
+                          bg: "bg-red-100",
+                          text: "text-red-800",
+                          label: "Rejected",
+                          border: "border-l-red-500",
+                          iconBg: "bg-red-100",
+                          iconColor: "text-red-600"
+                        }
+
+                        const formatDate = (dateStr: string) => {
+                          try {
+                            return new Date(dateStr).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          } catch {
+                            return dateStr
+                          }
+                        }
+
+                        return (
+                          <Card
+                            key={registration.registrationId}
+                            className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 border-l-4 ${statusConfig.border}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className={`w-12 h-12 ${statusConfig.iconBg} rounded-lg flex items-center justify-center`}>
+                                    <X className={`w-6 h-6 ${statusConfig.iconColor}`} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-gray-900 text-sm">{registration.collegeName}</h4>
+                                    <p className="text-xs text-gray-600">{registration.courseName}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Intake: {registration.intakeSession} • Applied: {formatDate(registration.createdAt)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs ${statusConfig.bg} ${statusConfig.text} px-2 py-1 rounded-full`}>
+                                    {statusConfig.label}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleApplicationExpansion(String(registration.registrationId))}
+                                    className="text-xs px-2 py-1 h-7"
+                                  >
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    {isExpanded ? "Close" : "View"}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                    <div>
+                                      <span className="text-gray-600">Registration ID:</span>
+                                      <span className="font-medium ml-2">#{registration.registrationId}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Application Year:</span>
+                                      <span className="font-medium ml-2">{registration.applicationYear}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Intake Session:</span>
+                                      <span className="font-medium ml-2">{registration.intakeSession}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Status:</span>
+                                      <span className={`font-medium ml-2 ${statusConfig.text}`}>{statusConfig.label}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.createdAt)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium ml-2">{formatDate(registration.updatedAt)}</span>
+                                    </div>
+                                  </div>
+                                  {registration.remarks && (
+                                    <div className="text-sm">
+                                      <span className="text-gray-600">Remarks:</span>
+                                      <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded">{registration.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

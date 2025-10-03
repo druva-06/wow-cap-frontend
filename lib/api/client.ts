@@ -268,3 +268,13 @@ export async function startCourseRegistration(data: {
     throw err
   }
 }
+
+export async function getStudentRegistrations(studentId: number): Promise<any> {
+  try {
+    const res = await axios.get(`/api/student-college-course-registration/student/${studentId}`)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
