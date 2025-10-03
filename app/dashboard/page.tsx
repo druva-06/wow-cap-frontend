@@ -49,7 +49,9 @@ import {
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument } from "@/lib/api/client"
+import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument, startCourseRegistration } from "@/lib/api/client"
+import { IntakeSelectionModal } from "@/components/modals/intake-selection-modal"
+
 
 interface Application {
   id: string
@@ -141,6 +143,7 @@ type WishlistItem = {
   courseName: string
   campusName: string
   tuitionFee: string
+  intakeMonths: string[]
 }
 
 // Custom Progress Component
@@ -539,6 +542,21 @@ export default function DashboardPage() {
   // Shortlist state
   const [shortlistFilter, setShortlistFilter] = useState("all")
   const [selectedUniversities, setSelectedUniversities] = useState<number[]>([])
+
+  // Intake modal state
+  const [showIntakeModal, setShowIntakeModal] = useState(false)
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false)
+  const [pendingApplication, setPendingApplication] = useState<{
+    collegeCourseId: number
+    collegeName: string
+    courseName: string
+    intakeMonths: string[]
+  } | null>(null)
+
+  // Success state (integrated into intake modal)
+  const [showIntakeSuccess, setShowIntakeSuccess] = useState(false)
+  const [successRegistrationId, setSuccessRegistrationId] = useState<string>("")
+  const [successIntakeSession, setSuccessIntakeSession] = useState<string>("")
 
   // Applications state - Initialize with empty array, will load from localStorage
   const [applications, setApplications] = useState<Application[]>([
@@ -1079,7 +1097,17 @@ export default function DashboardPage() {
       setWishlistError(null)
       const res = await getWishlistItems(numericStudentId)
       if (res?.success && Array.isArray(res?.response)) {
-        const items = (res.response as WishlistItem[]) || []
+        // Transform snake_case API response to camelCase
+        const items: WishlistItem[] = res.response.map((item: any) => ({
+          wishlistItemId: item.wishlist_item_id,
+          studentId: item.student_id,
+          collegeCourseId: item.college_course_id,
+          collegeName: item.college_name,
+          courseName: item.course_name,
+          campusName: item.campus_name,
+          tuitionFee: item.tuition_fee,
+          intakeMonths: item.intake_months || [],
+        }))
         setWishlistItems(items)
         // initialize local saved flags for UI toggle (filled heart)
         const initMap: Record<number, boolean> = {}
@@ -1987,7 +2015,20 @@ export default function DashboardPage() {
     return "Manage your Study Journey"
   }
 
-  const handleApplyNowFn = (universityId: string, courseId: string) => {
+  const handleApplyNowFn = (universityId: string, courseId: string, collegeCourseId?: number, collegeName?: string, courseName?: string, intakeMonths?: string[]) => {
+    // If collegeCourseId is provided (from wishlist), show intake modal
+    if (collegeCourseId && collegeName && courseName) {
+      setPendingApplication({
+        collegeCourseId,
+        collegeName,
+        courseName,
+        intakeMonths: intakeMonths || [],
+      })
+      setShowIntakeModal(true)
+      return
+    }
+
+    // Otherwise, use the old flow for other cards
     const university = sampleUniversities.find((u) => u.id.toString() === universityId)
     if (university) {
       const newApplication: Application = {
@@ -2016,6 +2057,81 @@ export default function DashboardPage() {
       // Navigate to application form
       router.push(`/apply/${universityId}/${courseId}`)
     }
+  }
+
+  const handleIntakeConfirm = async (intakeMonth: string, intakeYear: number, remarks?: string) => {
+    if (!pendingApplication) return
+
+    setIsSubmittingApplication(true)
+
+    try {
+      // Extract numeric student id from user data
+      const rawStudentId = user?.studentId || ""
+      const numericPart = rawStudentId ? Number(String(rawStudentId).replace(/\D+/g, "")) : NaN
+      const studentIdForApi = Number.isFinite(numericPart) && numericPart > 0 ? numericPart : undefined
+
+      if (!studentIdForApi) {
+        showToast("Profile Issue", "Cannot determine your student ID. Please complete your profile.")
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      const { collegeCourseId, collegeName, courseName } = pendingApplication
+
+      // Validate college course ID
+      const collegeCourseIdNum = Number(collegeCourseId)
+      if (!collegeCourseIdNum || isNaN(collegeCourseIdNum)) {
+        showToast("Invalid Course", "College Course ID is not valid.")
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      // Format intake session as "MON YYYY" (e.g., "SEP 2025")
+      const intakeSession = `${intakeMonth} ${intakeYear}`
+
+      // Call the registration start API with proper authentication
+      const response = await startCourseRegistration({
+        student_id: studentIdForApi,
+        college_course_id: collegeCourseIdNum,
+        intake_session: intakeSession,
+        remarks: remarks || undefined,
+      })
+
+      if (response?.success) {
+        // Store the selected intake in localStorage for the application form
+        localStorage.setItem("selected_intake", JSON.stringify({
+          month: intakeMonth,
+          year: intakeYear,
+          remarks: remarks || "",
+          registrationId: response.response?.registrationId,
+          timestamp: new Date().toISOString(),
+        }))
+
+        // Show success state in the same modal
+        setSuccessRegistrationId(response.response?.registrationId || "")
+        setSuccessIntakeSession(intakeSession)
+        setShowIntakeSuccess(true)
+
+        // Don't reset pendingApplication here - it will be reset when modal closes
+      } else {
+        showToast("Error", response.message || "Failed to start registration")
+      }
+    } catch (error: any) {
+      console.error("Failed to start registration:", error)
+      const errorMessage = error?.response?.data?.message || error?.message || "Failed to start application"
+      showToast("Error", errorMessage)
+    } finally {
+      setIsSubmittingApplication(false)
+    }
+  }
+
+  const handleIntakeModalClose = () => {
+    setShowIntakeModal(false)
+    setPendingApplication(null)
+    // Reset success state
+    setShowIntakeSuccess(false)
+    setSuccessRegistrationId("")
+    setSuccessIntakeSession("")
   }
 
   const renderRecommendationCard = (university: any) => (
@@ -2119,7 +2235,14 @@ export default function DashboardPage() {
         </Button>
         <Button
           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => handleApplyNowFn(university.name.toLowerCase().replace(/\s+/g, "-"), "cs-ms")}
+          onClick={() => handleApplyNowFn(
+            university.name.toLowerCase().replace(/\s+/g, "-"),
+            "cs-ms",
+            university.collegeCourseId,
+            university.collegeName,
+            university.courseName,
+            university.intakeMonths
+          )}
         >
           Apply Now
         </Button>
@@ -2154,6 +2277,11 @@ export default function DashboardPage() {
         item.campusName ? `Campus: ${item.campusName}` : "Popular program",
       ],
       showWishlistToggle: true,
+      // Pass wishlist-specific data for Apply Now
+      collegeCourseId: item.collegeCourseId,
+      collegeName: item.collegeName,
+      courseName: item.courseName,
+      intakeMonths: item.intakeMonths,
     }
 
     return renderRecommendationCard(mapped)
@@ -4264,6 +4392,22 @@ export default function DashboardPage() {
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Intake Selection Modal (with integrated success state) */}
+      {pendingApplication && (
+        <IntakeSelectionModal
+          isOpen={showIntakeModal}
+          onClose={handleIntakeModalClose}
+          onConfirm={handleIntakeConfirm}
+          courseName={pendingApplication.courseName}
+          universityName={pendingApplication.collegeName}
+          availableIntakes={pendingApplication.intakeMonths}
+          isLoading={isSubmittingApplication}
+          showSuccess={showIntakeSuccess}
+          registrationId={successRegistrationId}
+          intakeSession={successIntakeSession}
+        />
       )}
     </div>
   )

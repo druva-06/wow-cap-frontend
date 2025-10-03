@@ -23,6 +23,7 @@ import {
 import { studyAbroadUniversities, studyIndiaUniversities, studyOnlineCourses } from "@/lib/sample-data"
 import { AuthLoginModal } from "@/components/modals/auth-login-modal"
 import { ProfileCompletionModal } from "@/components/modals/profile-completion-modal"
+import { IntakeSelectionModal } from "@/components/modals/intake-selection-modal"
 import { TopBanner } from "@/components/search-results/top-banner"
 import { AdBanner } from "@/components/search-results/ad-banner"
 import { HorizontalFilters } from "@/components/search-results/horizontal-filters"
@@ -31,7 +32,8 @@ import Image from "next/image"
 import Link from "next/link"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
-import { addWishlistItem } from "@/lib/api/client"
+import { addWishlistItem, startCourseRegistration } from "@/lib/api/client"
+
 
 interface FilterState {
   countries: string[]
@@ -60,6 +62,12 @@ function SearchResultsContent() {
 
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showIntakeModal, setShowIntakeModal] = useState(false)
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false)
+  // Success state (integrated into intake modal)
+  const [showIntakeSuccess, setShowIntakeSuccess] = useState(false)
+  const [successRegistrationId, setSuccessRegistrationId] = useState<string>("")
+  const [successIntakeSession, setSuccessIntakeSession] = useState<string>("")
   const [searchInput, setSearchInput] = useState(queryFromUrl)
   const [searchQuery, setSearchQuery] = useState(queryFromUrl)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -74,7 +82,7 @@ function SearchResultsContent() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [wishlistLoading, setWishlistLoading] = useState<Record<string, boolean>>({})
   const [comparisonList, setComparisonList] = useState<string[]>([])
-  const [pendingApplication, setPendingApplication] = useState<{ universityId: string; courseId: string } | null>(null)
+  const [pendingApplication, setPendingApplication] = useState<{ universityId: string; courseId: string; collegeCourseId: string; intake: string[]; courseName: string; universityName: string } | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
@@ -257,7 +265,8 @@ function SearchResultsContent() {
         setShowProfileModal(true)
       }, 100)
     } else if (pendingApplication) {
-      router.push(`/apply/${pendingApplication.universityId}/${pendingApplication.courseId}?autofill=true`)
+      // Show intake selection modal instead of directly navigating
+      setShowIntakeModal(true)
     }
   }
 
@@ -268,7 +277,8 @@ function SearchResultsContent() {
     window.dispatchEvent(new Event("authStateChanged"))
 
     if (pendingApplication) {
-      router.push(`/apply/${pendingApplication.universityId}/${pendingApplication.courseId}?autofill=true`)
+      // Show intake selection modal instead of directly navigating
+      setShowIntakeModal(true)
     }
   }
 
@@ -276,7 +286,8 @@ function SearchResultsContent() {
     setShowProfileModal(false)
 
     if (pendingApplication) {
-      router.push(`/apply/${pendingApplication.universityId}/${pendingApplication.courseId}?collect=true`)
+      // Show intake selection modal instead of directly navigating
+      setShowIntakeModal(true)
     }
   }
 
@@ -785,16 +796,16 @@ function SearchResultsContent() {
       if (!intake) return "Rolling"
 
       let codes: string[] = []
-      if (Array.isArray(intake)) codes = intake.map((s) => (s || "").toString().trim().toUpperCase())
-      else codes = intake.toString().split(/[ ,|]+/).map((s) => (s || "").toString().trim().toUpperCase()).filter(Boolean)
+      if (Array.isArray(intake)) codes = intake.map((s) => (s || "").toString().trim().toUpperCase().slice(0, 3))
+      else codes = intake.toString().split(/[ ,|]+/).map((s) => (s || "").toString().trim().toUpperCase().slice(0, 3)).filter(Boolean)
 
       if (codes.length === 0) return "Rolling"
 
-      // Map to month names
-      const months = codes.map((c) => monthCodeToName(c) || c)
+      // Return 3-letter codes (e.g., JAN, JUN, SEP)
+      const validCodes = codes.filter((c) => c.length === 3)
 
       // If there are multiple, join with comma
-      return months.join(", ")
+      return validCodes.length > 0 ? validCodes.join(", ") : "Rolling"
     } catch (e) {
       return "Rolling"
     }
@@ -810,9 +821,7 @@ function SearchResultsContent() {
       .trim()
   }
 
-  const handleApplyNow = (universityId: string, courseId: string) => {
-    setPendingApplication({ universityId, courseId })
-
+  const handleApplyNow = (course: any) => {
     const searchData = {
       query: searchQuery,
       vertical: vertical,
@@ -829,8 +838,114 @@ function SearchResultsContent() {
       return
     }
 
-    // Profile completion happens immediately after login, not during Apply Now
-    router.push(`/apply/${universityId}/${courseId}?autofill=true`)
+    // Parse intake months from course data
+    let intakeMonths: string[] = []
+    if (Array.isArray(course.intake)) {
+      intakeMonths = course.intake
+    } else if (typeof course.intake === 'string') {
+      intakeMonths = course.intake.split(/[,\s]+/).filter(Boolean)
+    }
+
+    // Set pending application with intake data
+    setPendingApplication({
+      universityId: course.universityId,
+      courseId: course.courseId,
+      collegeCourseId: course.collegeCourseId,
+      intake: intakeMonths,
+      courseName: course.courseName,
+      universityName: course.universityName,
+    })
+
+    // Show intake selection modal
+    setShowIntakeModal(true)
+  }
+
+  const handleIntakeConfirm = async (selectedMonth: string, selectedYear: number, remarks?: string) => {
+    if (!pendingApplication) return
+
+    setIsSubmittingApplication(true)
+
+    try {
+      // Extract numeric student id
+      const rawStudentId = userData?.studentId || ""
+      const numericPart = rawStudentId ? Number(String(rawStudentId).replace(/\D+/g, "")) : NaN
+      const studentIdForApi = Number.isFinite(numericPart) && numericPart > 0 ? numericPart : undefined
+
+      if (!studentIdForApi) {
+        toast({
+          title: "Profile issue",
+          description: "Cannot determine your student ID. Please complete your profile.",
+          variant: "destructive"
+        })
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      // Get college course ID from pending application (use collegeCourseId, NOT courseId)
+      const collegeCourseId = Number(pendingApplication.collegeCourseId)
+      if (!collegeCourseId || isNaN(collegeCourseId)) {
+        toast({
+          title: "Invalid course",
+          description: "College Course ID is not valid.",
+          variant: "destructive"
+        })
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      // Format intake session as "MON YYYY" (e.g., "SEP 2025")
+      const intakeSession = `${selectedMonth} ${selectedYear}`
+
+      // Call the API to start registration
+      const response = await startCourseRegistration({
+        student_id: studentIdForApi,
+        college_course_id: collegeCourseId,
+        intake_session: intakeSession,
+        remarks: remarks || undefined,
+      })
+
+      if (response?.success) {
+        // Store the selected intake in localStorage for the application form
+        localStorage.setItem("selected_intake", JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+          remarks: remarks || "",
+          registrationId: response.response?.registrationId,
+          timestamp: new Date().toISOString(),
+        }))
+
+        // Show success state in the same modal
+        setSuccessRegistrationId(response.response?.registrationId || "")
+        setSuccessIntakeSession(intakeSession)
+        setShowIntakeSuccess(true)
+
+        // Don't reset pendingApplication here - it will be reset when modal closes
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: response?.message || "Failed to start registration. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error starting registration:", error)
+      toast({
+        title: "Error",
+        description: error?.message || "An error occurred while starting your registration.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingApplication(false)
+    }
+  }
+
+  const handleIntakeModalClose = () => {
+    setShowIntakeModal(false)
+    setPendingApplication(null)
+    // Reset success state
+    setShowIntakeSuccess(false)
+    setSuccessRegistrationId("")
+    setSuccessIntakeSession("")
   }
 
   if (authLoading) {
@@ -1115,7 +1230,7 @@ function SearchResultsContent() {
                           <div className="flex items-center gap-2">
                             <Button
                               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs font-medium h-7 rounded"
-                              onClick={() => handleApplyNow(course.universityId, course.courseId)}
+                              onClick={() => handleApplyNow(course)}
                             >
                               Apply Now
                             </Button>
@@ -1284,6 +1399,19 @@ function SearchResultsContent() {
         onComplete={handleProfileComplete}
         onSkip={handleProfileSkip}
         userData={userData}
+      />
+
+      <IntakeSelectionModal
+        isOpen={showIntakeModal}
+        onClose={handleIntakeModalClose}
+        onConfirm={handleIntakeConfirm}
+        availableIntakes={pendingApplication?.intake || []}
+        courseName={pendingApplication?.courseName}
+        universityName={pendingApplication?.universityName}
+        isLoading={isSubmittingApplication}
+        showSuccess={showIntakeSuccess}
+        registrationId={successRegistrationId}
+        intakeSession={successIntakeSession}
       />
     </div>
   )

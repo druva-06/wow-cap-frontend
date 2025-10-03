@@ -33,9 +33,12 @@ import {
 import Image from "next/image"
 import { studyAbroadUniversities, studyIndiaColleges } from "@/lib/sample-data"
 import { useEffect } from "react"
-import { getCollegeCourseDetail } from "@/lib/api/client"
+import { getCollegeCourseDetail, startCourseRegistration } from "@/lib/api/client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Loader } from "lucide-react"
+import { IntakeSelectionModal } from "@/components/modals/intake-selection-modal"
+import { toast } from "@/hooks/use-toast"
+import type { UnifiedUserProfile } from "@/types/user"
 
 export default function CourseDetailPage() {
   const params = useParams()
@@ -44,6 +47,8 @@ export default function CourseDetailPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showCostCalculator, setShowCostCalculator] = useState(false)
+  const [showIntakeModal, setShowIntakeModal] = useState(false)
+  const [userData, setUserData] = useState<UnifiedUserProfile | null>(null)
   const [leadFormData, setLeadFormData] = useState({
     name: "",
     email: "",
@@ -51,6 +56,25 @@ export default function CourseDetailPage() {
     intake: "",
     moreInfo: "",
   })
+
+  // Loading and success states for intake modal
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false)
+  const [showIntakeSuccess, setShowIntakeSuccess] = useState(false)
+  const [successRegistrationId, setSuccessRegistrationId] = useState<string>("")
+  const [successIntakeSession, setSuccessIntakeSession] = useState<string>("")
+
+  // Load user data
+  useEffect(() => {
+    const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+    if (userString) {
+      try {
+        const parsedUser = JSON.parse(userString) as UnifiedUserProfile
+        setUserData(parsedUser)
+      } catch (error) {
+        console.error("Error parsing user data", error)
+      }
+    }
+  }, [])
 
   const allUniversities = [...studyAbroadUniversities, ...studyIndiaColleges]
   let university: any = null
@@ -279,8 +303,155 @@ export default function CourseDetailPage() {
     return "Contact for fees"
   }
 
+  const getNextIntakeMonth = (intakeData: any) => {
+    if (!intakeData) return "Contact"
+
+    // Month mapping
+    const monthMap: Record<string, { full: string; short: string; number: number }> = {
+      JAN: { full: "January", short: "Jan", number: 0 },
+      FEB: { full: "February", short: "Feb", number: 1 },
+      MAR: { full: "March", short: "Mar", number: 2 },
+      APR: { full: "April", short: "Apr", number: 3 },
+      MAY: { full: "May", short: "May", number: 4 },
+      JUN: { full: "June", short: "Jun", number: 5 },
+      JUL: { full: "July", short: "Jul", number: 6 },
+      AUG: { full: "August", short: "Aug", number: 7 },
+      SEP: { full: "September", short: "Sep", number: 8 },
+      OCT: { full: "October", short: "Oct", number: 9 },
+      NOV: { full: "November", short: "Nov", number: 10 },
+      DEC: { full: "December", short: "Dec", number: 11 },
+    }
+
+    const currentMonth = new Date().getMonth() // 0-11
+
+    // Parse intake months
+    let intakeMonths: string[] = []
+
+    if (Array.isArray(intakeData)) {
+      intakeMonths = intakeData.map((intake: any) => {
+        if (typeof intake === "string") return intake.trim().toUpperCase().slice(0, 3)
+        if (typeof intake === "object" && intake?.term) return String(intake.term).trim().toUpperCase().slice(0, 3)
+        return ""
+      }).filter(Boolean)
+    } else if (typeof intakeData === "string") {
+      intakeMonths = intakeData.split(/[,\s]+/).map(m => m.trim().toUpperCase().slice(0, 3)).filter(Boolean)
+    } else if (typeof intakeData === "object" && intakeData?.term) {
+      intakeMonths = [String(intakeData.term).trim().toUpperCase().slice(0, 3)]
+    }
+
+    if (intakeMonths.length === 0) return "Contact"
+
+    // Filter valid months and get their numeric values
+    const validIntakes = intakeMonths
+      .filter(code => monthMap[code])
+      .map(code => ({
+        code,
+        month: monthMap[code].number
+      }))
+      .sort((a, b) => a.month - b.month)
+
+    if (validIntakes.length === 0) return "Contact"
+
+    // Find the next upcoming intake
+    const nextIntake = validIntakes.find(intake => intake.month > currentMonth)
+
+    // If found an upcoming intake this year, return 3-letter code
+    if (nextIntake) {
+      return nextIntake.code
+    }
+
+    // Otherwise, return the first intake code (it will be next year)
+    return validIntakes[0].code
+  }
+
   const handleApplyNow = () => {
-    router.push(`/apply/${university.id}/${course.id}`)
+    // Show intake selection modal before navigating to application
+    setShowIntakeModal(true)
+  }
+
+  const handleIntakeConfirm = async (selectedMonth: string, selectedYear: number, remarks?: string) => {
+    setIsSubmittingApplication(true)
+
+    try {
+      // Extract numeric student id
+      const rawStudentId = userData?.studentId || ""
+      const numericPart = rawStudentId ? Number(String(rawStudentId).replace(/\D+/g, "")) : NaN
+      const studentIdForApi = Number.isFinite(numericPart) && numericPart > 0 ? numericPart : undefined
+
+      if (!studentIdForApi) {
+        toast({
+          title: "Profile issue",
+          description: "Cannot determine your student ID. Please complete your profile.",
+          variant: "destructive"
+        })
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      // Get college course ID from URL params (params.courseId is actually the collegeCourseId)
+      const collegeCourseId = Number(params.courseId)
+      if (!collegeCourseId || isNaN(collegeCourseId)) {
+        toast({
+          title: "Invalid course",
+          description: "College Course ID is not valid.",
+          variant: "destructive"
+        })
+        setIsSubmittingApplication(false)
+        return
+      }
+
+      // Format intake session as "MON YYYY" (e.g., "SEP 2025")
+      const intakeSession = `${selectedMonth} ${selectedYear}`
+
+      // Call the API to start registration
+      const response = await startCourseRegistration({
+        student_id: studentIdForApi,
+        college_course_id: collegeCourseId,
+        intake_session: intakeSession,
+        remarks: remarks || undefined,
+      })
+
+      if (response?.success) {
+        // Store the selected intake in localStorage for the application form
+        localStorage.setItem("selected_intake", JSON.stringify({
+          month: selectedMonth,
+          year: selectedYear,
+          remarks: remarks || "",
+          registrationId: response.response?.registrationId,
+          timestamp: new Date().toISOString(),
+        }))
+
+        // Show success state in the same modal
+        setSuccessRegistrationId(response.response?.registrationId || "")
+        setSuccessIntakeSession(intakeSession)
+        setShowIntakeSuccess(true)
+
+        // Don't navigate or close modal here - let user see success and click Done
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: response?.message || "Failed to start registration. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error starting registration:", error)
+      toast({
+        title: "Error",
+        description: error?.message || "An error occurred while starting your registration.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingApplication(false)
+    }
+  }
+
+  const handleIntakeModalClose = () => {
+    setShowIntakeModal(false)
+    // Reset success state
+    setShowIntakeSuccess(false)
+    setSuccessRegistrationId("")
+    setSuccessIntakeSession("")
   }
 
   const handleLeadSubmit = (e: React.FormEvent) => {
@@ -363,20 +534,7 @@ export default function CourseDetailPage() {
                   </div>
                   <div className="text-sm opacity-75 mb-1">Next Intake</div>
                   <div className="font-bold text-lg">
-                    {(() => {
-                      if (!course.intake) return "Contact"
-                      if (Array.isArray(course.intake)) {
-                        const firstIntake = course.intake[0]
-                        if (typeof firstIntake === "object" && firstIntake !== null) {
-                          return firstIntake.term || firstIntake.deadline || firstIntake.seats || "Contact"
-                        }
-                        return String(firstIntake)
-                      }
-                      if (typeof course.intake === "object" && course.intake !== null) {
-                        return course.intake.term || course.intake.deadline || course.intake.seats || "Contact"
-                      }
-                      return String(course.intake)
-                    })()}
+                    {getNextIntakeMonth(course.intake)}
                   </div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
@@ -1244,6 +1402,29 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </div>
+
+      <IntakeSelectionModal
+        isOpen={showIntakeModal}
+        onClose={handleIntakeModalClose}
+        onConfirm={handleIntakeConfirm}
+        availableIntakes={
+          Array.isArray(course?.intake)
+            ? course.intake.map((i: any) => {
+              if (typeof i === 'string') return i
+              if (typeof i === 'object' && i?.term) return i.term
+              return ''
+            }).filter(Boolean)
+            : typeof course?.intake === 'string'
+              ? course.intake.split(/[,\s]+/).filter(Boolean)
+              : []
+        }
+        courseName={course?.name}
+        universityName={university?.name}
+        isLoading={isSubmittingApplication}
+        showSuccess={showIntakeSuccess}
+        registrationId={successRegistrationId}
+        intakeSession={successIntakeSession}
+      />
     </div>
   )
 }

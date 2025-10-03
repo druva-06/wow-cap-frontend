@@ -252,3 +252,19 @@ export async function deleteDocument(documentId: number): Promise<any> {
     throw err
   }
 }
+
+// Student College Course Registration API
+export async function startCourseRegistration(data: {
+  student_id: number
+  college_course_id: number
+  intake_session: string
+  remarks?: string
+}): Promise<any> {
+  try {
+    const res = await axios.post("/api/student-college-course-registration/start", data)
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
