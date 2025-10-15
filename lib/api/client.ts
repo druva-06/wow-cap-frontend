@@ -278,3 +278,121 @@ export async function getStudentRegistrations(studentId: number): Promise<any> {
     throw err
   }
 }
+
+// Student Education APIs
+export async function getStudentEducation(userId?: number): Promise<any> {
+  try {
+    let id = userId
+
+    // If userId not provided, try to get from localStorage
+    if (!id && typeof window !== "undefined") {
+      try {
+        const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+        if (userString) {
+          const userData = JSON.parse(userString)
+          
+          // Try to get student ID from different possible fields
+          // First check for numeric IDs
+          id = userData?.user_id || userData?.id || userData?.userId || userData?.student_id
+          
+          // If not found or still no ID, try to extract from studentId field (e.g., "WC15" → 15)
+          if (!id && userData?.studentId) {
+            const studentIdStr = String(userData.studentId)
+            // Extract numeric part from studentId (e.g., "WC15" → "15")
+            const numericMatch = studentIdStr.match(/\d+/)
+            if (numericMatch) {
+              id = parseInt(numericMatch[0], 10)
+              console.log("Extracted user ID from studentId:", userData.studentId, "→", id)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get user ID from storage:", e)
+      }
+    }
+
+    if (!id) {
+      throw new Error("User ID not found. Please login again.")
+    }
+
+    console.log("Fetching education for userId:", id)
+
+    const res = await axios.get(`/api/student-education/get`, {
+      params: { userId: id }
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+export async function createStudentEducation(educationData: any): Promise<any> {
+  try {
+    let userId = educationData.userId
+
+    // If userId not provided, try to get from localStorage
+    if (!userId && typeof window !== "undefined") {
+      try {
+        const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+        if (userString) {
+          const userData = JSON.parse(userString)
+          userId = userData?.user_id || userData?.id || userData?.userId || userData?.student_id
+          
+          if (!userId && userData?.studentId) {
+            const studentIdStr = String(userData.studentId)
+            const numericMatch = studentIdStr.match(/\d+/)
+            if (numericMatch) {
+              userId = parseInt(numericMatch[0], 10)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get user ID from storage:", e)
+      }
+    }
+
+    if (!userId) {
+      throw new Error("User ID not found. Please login again.")
+    }
+
+    // Don't include userId in payload, send it as query parameter
+    console.log("Creating education for userId:", userId, "Payload:", educationData)
+
+    const res = await axios.post(`/api/student-education/add`, educationData, {
+      params: { userId }
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+export async function updateStudentEducation(educationId: number, educationData: any): Promise<any> {
+  try {
+    console.log("Updating education:", educationId, educationData)
+
+    const res = await axios.put(`/api/student-education/update`, educationData, {
+      params: { educationId }
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+export async function deleteStudentEducation(educationId: number): Promise<any> {
+  try {
+    console.log("Deleting education:", educationId)
+
+    const res = await axios.delete(`/api/student-education/delete`, {
+      params: { educationId }
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}

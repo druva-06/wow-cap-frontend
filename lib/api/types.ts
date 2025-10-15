@@ -28,3 +28,27 @@ export interface LoginApiResponse {
   statusCode: number
   success: boolean
 }
+
+export interface StudentEducation {
+  educationId: number
+  educationLevel: "UNDERGRADUATE" | "POSTGRADUATE" | "HIGH_SCHOOL" | "DOCTORATE"
+  institutionName: string
+  board: string | null
+  collegeCode: string | null
+  institutionAddress: string
+  startYear: string
+  endYear: string
+  percentage: number | null
+  cgpa: number | null
+  fieldOfStudy: string
+  degree: string
+  backlogs: number | null
+  certificateDocument: string | null
+}
+
+export interface StudentEducationResponse {
+  response: StudentEducation[]
+  message: string
+  statusCode: number
+  success: boolean
+}
