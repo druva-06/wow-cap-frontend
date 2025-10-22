@@ -758,7 +758,7 @@ export default function ViewProfilePage() {
                             strokeWidth="3"
                             fill="none"
                             strokeDasharray={`${(user.stats.profileStrength / 100) * 100.53} 100.53`}
-                            strokeLinecap="round"
+                            strokeLinecap={user.stats.profileStrength === 100 ? "butt" : "round"}
                             className="transition-all duration-1000 ease-out"
                           />
                         </svg>
