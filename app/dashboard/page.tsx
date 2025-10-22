@@ -1294,19 +1294,21 @@ export default function DashboardPage() {
       const response = await getDocumentsList(userRole.toUpperCase(), numericId)
 
       if (response?.success && Array.isArray(response?.response)) {
-        // Map API response to Document interface
-        const fetchedDocuments = response.response.map((doc: any) => ({
-          id: doc.id,
-          name: doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1),
-          status: doc.documentStatus.toLowerCase() as "uploaded" | "pending" | "missing" | "verified" | "rejected",
-          required: false,
-          uploadDate: new Date(doc.uploadedAt).toISOString().split("T")[0],
-          size: "", // Size not provided by API
-          type: "PDF", // Default to PDF
-          category: doc.category,
-          url: doc.fileUrl,
-          comments: doc.remarks,
-        }))
+        // Filter out PROFILE_IMAGE documents and map API response to Document interface
+        const fetchedDocuments = response.response
+          .filter((doc: any) => doc.documentType !== "PROFILE_IMAGE")
+          .map((doc: any) => ({
+            id: doc.id,
+            name: doc.documentType.charAt(0).toUpperCase() + doc.documentType.slice(1),
+            status: doc.documentStatus.toLowerCase() as "uploaded" | "pending" | "missing" | "verified" | "rejected",
+            required: false,
+            uploadDate: new Date(doc.uploadedAt).toISOString().split("T")[0],
+            size: "", // Size not provided by API
+            type: "PDF", // Default to PDF
+            category: doc.category,
+            url: doc.fileUrl,
+            comments: doc.remarks,
+          }))
 
         setDocuments(fetchedDocuments)
       } else {
