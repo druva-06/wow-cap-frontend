@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, GraduationCap, Save, ArrowLeft, Award, Camera, Upload, Plus, Trash2, X, Loader2, Check } from "lucide-react"
+import { User, GraduationCap, Save, ArrowLeft, Award, Plus, Trash2, X, Loader2, Check } from "lucide-react"
 import { getStudentEducation, createStudentEducation, updateStudentEducation, deleteStudentEducation } from "@/lib/api/client"
 import type { StudentEducation } from "@/lib/api/types"
 import { useToast } from "@/hooks/use-toast"
@@ -403,33 +403,9 @@ export default function EditProfilePage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Profile Picture */}
-                    <div className="lg:col-span-1">
-                        <Card className="border-0 shadow-lg">
-                            <CardContent className="p-6 text-center">
-                                <div className="relative inline-block mb-4">
-                                    <img
-                                        src="/placeholder.svg?height=120&width=120"
-                                        alt="Profile"
-                                        className="w-24 h-24 rounded-full object-cover border-4 border-blue-100"
-                                    />
-                                    <div className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700">
-                                        <Upload className="w-4 h-4 text-white" />
-                                    </div>
-                                </div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Profile Picture</h3>
-                                <p className="text-sm text-gray-600 mb-4">Upload a new profile picture</p>
-                                <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent">
-                                    <Camera className="w-4 h-4 mr-2" />
-                                    Change Photo
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-
+                <div className="grid grid-cols-1 gap-6">
                     {/* Form Fields */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="space-y-6">
                         {/* Personal Information */}
                         <Card className="border-0 shadow-lg border-l-4 border-l-blue-500">
                             <CardHeader>

@@ -42,6 +42,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userName, setUserName] = useState("")
+  const [profilePicture, setProfilePicture] = useState("")
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const router = useRouter()
   const profileRef = useRef<HTMLDivElement | null>(null)
@@ -55,6 +56,7 @@ export function Header() {
           setIsLoggedIn(true)
           const user = JSON.parse(userData)
           setUserName(user.name || "User")
+          setProfilePicture(user.profile_picture || "")
           return
         }
 
@@ -63,14 +65,17 @@ export function Header() {
         if (token) {
           setIsLoggedIn(true)
           setUserName("User")
+          setProfilePicture("")
           return
         }
 
         setIsLoggedIn(false)
         setUserName("")
+        setProfilePicture("")
       } catch (e) {
         setIsLoggedIn(false)
         setUserName("")
+        setProfilePicture("")
       }
     }
 
@@ -658,9 +663,9 @@ export function Header() {
                   >
                     <div className="relative">
                       <img
-                        src="/professional-student-profile.png"
+                        src={profilePicture || "/professional-student-profile.png"}
                         alt="Profile"
-                        className="w-5 h-5 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
                       />
                       {/* Notification badge positioned on profile photo */}
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">

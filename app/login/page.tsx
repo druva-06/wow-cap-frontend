@@ -236,6 +236,7 @@ export default function LoginPage() {
             studentId: `WC${user.user_id}`,
             loginTime: new Date().toISOString(),
             signupTime: new Date().toISOString(),
+            profile_picture: user.profile_picture || "",
           }
 
           setUserData(mapped)

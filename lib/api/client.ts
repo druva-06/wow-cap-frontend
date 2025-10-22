@@ -396,3 +396,28 @@ export async function deleteStudentEducation(educationId: number): Promise<any> 
     throw err
   }
 }
+
+// Profile Image Upload API
+export async function uploadProfileImage(file: File): Promise<any> {
+  try {
+    // Get the token to ensure authorization
+    const token = typeof window !== "undefined" ? getToken() : null
+    if (!token) {
+      throw new Error("No authentication token found")
+    }
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const res = await axios.post("/api/profile/image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}

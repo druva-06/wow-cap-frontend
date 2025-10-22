@@ -6,6 +6,7 @@ export interface UnifiedUserProfile {
   dateOfBirth: string
   nationality: string
   currentLocation: string
+  profile_picture?: string
 
   // Education Background
   lastEducation: string

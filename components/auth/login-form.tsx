@@ -58,6 +58,7 @@ export default function LoginForm({ onSuccess, onCancel }: LoginFormProps) {
                     studentId: user.user_id ? `WC${user.user_id}` : `WC${Date.now()}`,
                     loginTime: new Date().toISOString(),
                     signupTime: new Date().toISOString(),
+                    profile_picture: user.profile_picture || "",
                 }
 
                 try {

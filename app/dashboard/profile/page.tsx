@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,9 +15,14 @@ import {
   ChevronDown,
   Building2,
   TrendingUp,
+  Upload,
+  X,
+  Check,
+  Image as ImageIcon,
 } from "lucide-react"
-import { getStudentEducation } from "@/lib/api/client"
+import { getStudentEducation, uploadProfileImage } from "@/lib/api/client"
 import type { StudentEducation } from "@/lib/api/types"
+import { useToast } from "@/hooks/use-toast"
 
 interface EducationDisplay {
   id: string
@@ -34,10 +39,36 @@ interface EducationDisplay {
 
 export default function ViewProfilePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [educationHistory, setEducationHistory] = useState<EducationDisplay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Image upload states
+  const [profileImage, setProfileImage] = useState("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face&auto=format&q=80")
+  const [isHoveringImage, setIsHoveringImage] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load profile image from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+        if (userString) {
+          const userData = JSON.parse(userString)
+          if (userData?.profile_picture) {
+            setProfileImage(userData.profile_picture)
+          }
+        }
+      } catch (e) {
+        console.error("Error loading profile image:", e)
+      }
+    }
+  }, [])
 
   // Fetch education data on component mount
   useEffect(() => {
@@ -113,6 +144,129 @@ export default function ViewProfilePage() {
     fetchEducationData()
   }, [])
 
+  // Handle file selection
+  const handleFileSelect = async (file: File) => {
+    // Check if file is an allowed image type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file format",
+        description: "Please select a valid image file. Only JPG, JPEG, PNG, and WebP formats are allowed.",
+      })
+      return
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "File size must be less than 5MB",
+      })
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      // Call the API to upload the profile image
+      const response = await uploadProfileImage(file)
+
+      if (response.success && response.response?.fileUrl) {
+        // Update the profile image state with the new URL
+        setProfileImage(response.response.fileUrl)
+
+        // Update localStorage with the new profile picture URL
+        if (typeof window !== "undefined") {
+          try {
+            const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+            if (userString) {
+              const userData = JSON.parse(userString)
+              userData.profile_picture = response.response.fileUrl
+
+              // Save back to the same storage
+              if (localStorage.getItem("wowcap_user")) {
+                localStorage.setItem("wowcap_user", JSON.stringify(userData))
+              } else {
+                sessionStorage.setItem("wowcap_user", JSON.stringify(userData))
+              }
+            }
+          } catch (e) {
+            console.error("Error updating localStorage:", e)
+          }
+        }
+
+        setIsUploading(false)
+        setUploadSuccess(true)
+
+        // Show success toast
+        toast({
+          title: "Success!",
+          description: response.message || "Profile image uploaded successfully",
+        })
+
+        // Hide success indicator after 2 seconds
+        setTimeout(() => {
+          setUploadSuccess(false)
+        }, 2000)
+      } else {
+        throw new Error(response.message || "Failed to upload profile image")
+      }
+    } catch (err: any) {
+      console.error("Error uploading profile image:", err)
+      setIsUploading(false)
+
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: err.message || "Failed to upload profile image. Please try again.",
+      })
+    }
+  }
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  // Handle drag events
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  // Open file picker
+  const openFilePicker = () => {
+    fileInputRef.current?.click()
+  }
+
   const user = {
     name: "Shiva Mantri",
     email: "mantrishivaramakrishna1@gmail.com",
@@ -151,15 +305,113 @@ export default function ViewProfilePage() {
 
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
             <div className="flex items-center gap-6">
-              <div className="relative">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face&auto=format&q=80"
-                  alt="Profile"
-                  className="w-24 h-24 lg:w-28 lg:h-28 rounded-full object-cover border-4 border-white shadow-lg"
+              {/* Interactive Profile Image Uploader */}
+              <div
+                className="relative group"
+                onMouseEnter={() => setIsHoveringImage(true)}
+                onMouseLeave={() => setIsHoveringImage(false)}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleFileInputChange}
+                  className="hidden"
                 />
-                <div className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors">
-                  <Camera className="w-4 h-4 text-white" />
+
+                {/* Profile Image Container */}
+                <div className="relative">
+                  <div className={`w-28 h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-4 transition-all duration-300 ${isDragging
+                    ? 'border-blue-500 shadow-2xl scale-105 ring-4 ring-blue-200'
+                    : uploadSuccess
+                      ? 'border-green-500 shadow-2xl ring-4 ring-green-200'
+                      : 'border-white shadow-xl group-hover:shadow-2xl group-hover:scale-105'
+                    }`}>
+                    <img
+                      src={profileImage}
+                      alt="Profile"
+                      className={`w-full h-full object-cover transition-all duration-300 ${isHoveringImage && !isUploading ? 'brightness-75 scale-110' : ''
+                        } ${isUploading ? 'blur-sm brightness-50' : ''}`}
+                    />
+                  </div>
+
+                  {/* Upload Overlay */}
+                  <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-all duration-300 ${isHoveringImage || isDragging ? 'opacity-100' : 'opacity-0'
+                    } ${isDragging ? 'bg-blue-600/80' : 'bg-gradient-to-br from-blue-600/80 to-purple-600/80'}`}>
+                    {!isUploading && !uploadSuccess && (
+                      <div className="text-center">
+                        <Upload className={`w-8 h-8 text-white mx-auto mb-1 transition-transform duration-300 ${isDragging ? 'scale-125 animate-bounce' : 'group-hover:scale-110'
+                          }`} />
+                        <p className="text-white text-xs font-semibold">
+                          {isDragging ? 'Drop here!' : 'Upload'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Loading Spinner */}
+                  {isUploading && (
+                    <div className="absolute inset-0 rounded-full flex items-center justify-center bg-blue-600/80">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 text-white animate-spin mx-auto mb-1" />
+                        <p className="text-white text-xs font-semibold">Uploading...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success Indicator */}
+                  {uploadSuccess && (
+                    <div className="absolute inset-0 rounded-full flex items-center justify-center bg-green-600/90 animate-in fade-in zoom-in duration-300">
+                      <div className="text-center">
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-1">
+                          <Check className="w-8 h-8 text-white animate-in zoom-in duration-300" strokeWidth={3} />
+                        </div>
+                        <p className="text-white text-xs font-semibold">Success!</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Camera Button - Bottom Right */}
+                  <button
+                    onClick={openFilePicker}
+                    disabled={isUploading}
+                    className={`absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 shadow-lg ${isUploading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : uploadSuccess
+                        ? 'bg-green-600 hover:bg-green-700 scale-110'
+                        : 'bg-gradient-to-br from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:scale-110 hover:shadow-xl'
+                      } ${isHoveringImage && !isUploading ? 'scale-110 ring-4 ring-blue-200' : ''}`}
+                  >
+                    {uploadSuccess ? (
+                      <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white" />
+                    )}
+                  </button>
+
+                  {/* Drag & Drop Hint */}
+                  {isDragging && (
+                    <div className="absolute -inset-4 rounded-full border-4 border-dashed border-blue-400 animate-pulse" />
+                  )}
                 </div>
+
+                {/* Upload Instructions Tooltip */}
+                {isHoveringImage && !isUploading && !isDragging && (
+                  <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 w-48 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+                    <p className="font-semibold mb-1 flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" />
+                      Change Profile Photo
+                    </p>
+                    <p className="text-gray-300 text-[10px]">Click or drag & drop to upload</p>
+                    <p className="text-gray-400 text-[10px] mt-1">Max 5MB • JPG, JPEG, PNG, WebP</p>
+                  </div>
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-4 mb-2">
