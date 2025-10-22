@@ -9,6 +9,7 @@ import { login as loginApi } from "@/lib/api/client"
 import { saveToken, saveRefreshToken } from "@/lib/auth"
 import type { LoginRequest } from "@/lib/api/types"
 import type { UnifiedUserProfile } from "@/types/user"
+import { setEncryptedUser } from "@/lib/encryption"
 
 interface LoginFormProps {
     onSuccess?: (user: UnifiedUserProfile) => void
@@ -62,13 +63,18 @@ export default function LoginForm({ onSuccess, onCancel }: LoginFormProps) {
                 }
 
                 try {
+                    console.log("[LoginForm] Attempting to store encrypted user data")
+                    // Store encrypted user data ONLY
+                    setEncryptedUser(mapped, !rememberMe)
+                    console.log("[LoginForm] Encrypted user data stored successfully")
+                } catch (e) {
+                    console.error("[LoginForm] Failed to store encrypted data:", e)
+                    // Fallback to unencrypted storage
                     if (rememberMe) {
                         localStorage.setItem("wowcap_user", JSON.stringify(mapped))
                     } else {
                         sessionStorage.setItem("wowcap_user", JSON.stringify(mapped))
                     }
-                } catch (e) {
-                    localStorage.setItem("wowcap_user", JSON.stringify(mapped))
                 }
 
                 try { window.dispatchEvent(new Event("authStateChanged")) } catch (e) { }

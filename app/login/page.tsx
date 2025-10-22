@@ -16,6 +16,7 @@ import type { UnifiedUserProfile } from "@/types/user"
 import { login as loginApi } from "@/lib/api/client"
 import { setToken, setRefreshToken } from "@/lib/auth"
 import type { LoginRequest } from "@/lib/api/types"
+import { setEncryptedUser } from "@/lib/encryption"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -221,6 +222,7 @@ export default function LoginPage() {
             name: `${user.first_name} ${user.last_name}`,
             email: user.email,
             phone: user.phone_number || "",
+            username: user.username || "",
             dateOfBirth: "",
             nationality: "",
             currentLocation: "",
@@ -241,13 +243,18 @@ export default function LoginPage() {
 
           setUserData(mapped)
           try {
+            console.log("[Login] Attempting to store encrypted user data")
+            // Store encrypted user data ONLY
+            setEncryptedUser(mapped, !formData.rememberMe)
+            console.log("[Login] Encrypted user data stored successfully")
+          } catch (e) {
+            console.error("[Login] Failed to store encrypted data:", e)
+            // Fallback to unencrypted storage
             if (formData.rememberMe) {
               localStorage.setItem("wowcap_user", JSON.stringify(mapped))
             } else {
               sessionStorage.setItem("wowcap_user", JSON.stringify(mapped))
             }
-          } catch (e) {
-            localStorage.setItem("wowcap_user", JSON.stringify(mapped))
           }
           // Notify other components in the same window to refresh auth state
           try {

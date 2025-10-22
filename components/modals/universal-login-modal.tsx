@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { User, Lock, Mail, Phone, Eye, EyeOff, Sparkles } from "lucide-react"
+import { setEncryptedUser } from "@/lib/encryption"
 
 interface UniversalLoginModalProps {
   isOpen: boolean
@@ -52,7 +53,8 @@ export function UniversalLoginModal({ isOpen, onClose, onComplete }: UniversalLo
       signupTime: new Date().toISOString(),
     }
 
-    localStorage.setItem("wowcap_user", JSON.stringify(userData))
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(userData, !rememberMe)
     onComplete(userData)
     onClose()
   }
@@ -73,7 +75,8 @@ export function UniversalLoginModal({ isOpen, onClose, onComplete }: UniversalLo
       loginTime: new Date().toISOString(),
     }
 
-    localStorage.setItem("wowcap_user", JSON.stringify(userData))
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(userData, !rememberMe)
     onComplete(userData)
     onClose()
   }

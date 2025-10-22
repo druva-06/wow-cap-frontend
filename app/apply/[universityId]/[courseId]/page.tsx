@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CardContent, CardTitle, Card } from "@/components/ui/card"
+import { getEncryptedUser } from "@/lib/encryption"
 import {
   ArrowLeft,
   Upload,
@@ -309,12 +310,19 @@ export default function ApplicationPage({ params }: { params: { universityId: st
         setCourse(foundCourse)
 
         // Load user data from multiple sources and auto-fill form
-        const user = localStorage.getItem("wowcap_user")
+        // Try encrypted storage first
+        let parsedUser = getEncryptedUser()
+
+        // Fallback to unencrypted sources
+        if (!parsedUser) {
+          const user = localStorage.getItem("wowcap_user")
+          parsedUser = user ? JSON.parse(user) : null
+        }
+
         const leadData = localStorage.getItem("wowcap_lead_data")
         const applicationData = localStorage.getItem("wowcap_application_data")
 
-        if (user || leadData || applicationData) {
-          const parsedUser = user ? JSON.parse(user) : null
+        if (parsedUser || leadData || applicationData) {
           const parsedLeadData = leadData ? JSON.parse(leadData) : null
           const parsedApplicationData = applicationData ? JSON.parse(applicationData) : null
 
@@ -418,9 +426,8 @@ export default function ApplicationPage({ params }: { params: { universityId: st
           <div className="flex justify-between mt-4 text-xs">
             <div className={`flex flex-col items-center ${currentStep >= 1 ? "text-blue-200" : "text-blue-400"}`}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                  currentStep >= 1 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${currentStep >= 1 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
+                  }`}
               >
                 1
               </div>
@@ -428,9 +435,8 @@ export default function ApplicationPage({ params }: { params: { universityId: st
             </div>
             <div className={`flex flex-col items-center ${currentStep >= 2 ? "text-blue-200" : "text-blue-400"}`}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                  currentStep >= 2 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${currentStep >= 2 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
+                  }`}
               >
                 2
               </div>
@@ -438,9 +444,8 @@ export default function ApplicationPage({ params }: { params: { universityId: st
             </div>
             <div className={`flex flex-col items-center ${currentStep >= 3 ? "text-blue-200" : "text-blue-400"}`}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                  currentStep >= 3 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${currentStep >= 3 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
+                  }`}
               >
                 3
               </div>
@@ -448,9 +453,8 @@ export default function ApplicationPage({ params }: { params: { universityId: st
             </div>
             <div className={`flex flex-col items-center ${currentStep >= 4 ? "text-blue-200" : "text-blue-400"}`}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                  currentStep >= 4 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${currentStep >= 4 ? "bg-blue-200 text-blue-800" : "bg-blue-700 text-blue-300"
+                  }`}
               >
                 4
               </div>

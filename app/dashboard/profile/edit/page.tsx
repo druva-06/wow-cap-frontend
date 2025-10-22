@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, GraduationCap, Save, ArrowLeft, Award, Plus, Trash2, X, Loader2, Check } from "lucide-react"
-import { getStudentEducation, createStudentEducation, updateStudentEducation, deleteStudentEducation } from "@/lib/api/client"
+import { User, GraduationCap, Save, ArrowLeft, Award, Plus, Trash2, X, Loader2, Check, Edit, CheckCircle2 } from "lucide-react"
+import { getStudentEducation, createStudentEducation, updateStudentEducation, deleteStudentEducation, getStudentProfile, updateStudentProfile } from "@/lib/api/client"
 import type { StudentEducation } from "@/lib/api/types"
 import { useToast } from "@/hooks/use-toast"
+import { getEncryptedUser } from "@/lib/encryption"
 
 interface Education {
     id: string
@@ -29,19 +30,19 @@ export default function EditProfilePage() {
     const router = useRouter()
     const { toast } = useToast()
 
-    // Form state - in real app, this would be populated from user context/API
+    // Form state - populated from user context/API
     const [formData, setFormData] = useState({
-        name: "Shiva Mantri",
-        email: "mantrishivaramakrishna1@gmail.com",
-        phone: "9849943319",
-        dateOfBirth: "1995-06-15",
-        nationality: "Indian",
-        address: "Hyderabad, Telangana, India",
+        name: "",
+        email: "",
+        phone: "",
+        username: "",
+        nationality: "",
+        address: "",
         preferences: {
-            studyDestination: "USA, Canada, UK",
-            interestedFields: "Computer Science, Data Science, AI/ML",
-            budgetRange: "$40,000 - $60,000",
-            intakePreference: "Fall 2024, Spring 2025",
+            studyDestination: "",
+            interestedFields: "",
+            budgetRange: "",
+            intakePreference: "",
         },
     })
 
@@ -49,11 +50,141 @@ export default function EditProfilePage() {
 
     const [isLoading, setIsLoading] = useState(false)
     const [isFetchingEducation, setIsFetchingEducation] = useState(true)
+    const [isFetchingProfile, setIsFetchingProfile] = useState(true)
     const [educationError, setEducationError] = useState<string | null>(null)
     const [expandedEducation, setExpandedEducation] = useState<string | null>(null)
     const [savingEducationIds, setSavingEducationIds] = useState<Set<string>>(new Set())
     const [savedEducationIds, setSavedEducationIds] = useState<Set<string>>(new Set())
     const [deletingEducationIds, setDeletingEducationIds] = useState<Set<string>>(new Set())
+
+    // Personal Info editable fields state
+    const [editablePersonalInfo, setEditablePersonalInfo] = useState({
+        dateOfBirth: "",
+        gender: "",
+        graduationLevel: "",
+    })
+    const [isUpdatingPersonalInfo, setIsUpdatingPersonalInfo] = useState(false)
+    const [personalInfoSaved, setPersonalInfoSaved] = useState(false)
+
+    // Fetch user data from encrypted storage and API on component mount
+    useEffect(() => {
+        const fetchUserData = async () => {
+            if (typeof window !== "undefined") {
+                try {
+                    setIsFetchingProfile(true)
+                    // Try encrypted storage first
+                    let userData: any = getEncryptedUser()
+
+                    // Fallback to unencrypted
+                    if (!userData) {
+                        const userString =
+                            localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+                        if (userString) {
+                            userData = JSON.parse(userString)
+                        }
+                    }
+
+                    if (userData) {
+                        // Fetch additional profile data from API
+                        try {
+                            const profileResponse = await getStudentProfile()
+                            if (profileResponse.success && profileResponse.response) {
+                                const profile = profileResponse.response
+
+                                // Set form data
+                                setFormData({
+                                    name:
+                                        userData.name ||
+                                        `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+                                        "",
+                                    email: userData.email || "",
+                                    phone: userData.phone_number || userData.phone || "",
+                                    username: userData.username || "",
+                                    nationality: userData.nationality || "",
+                                    address: userData.currentLocation || userData.address || "",
+                                    preferences: {
+                                        studyDestination: userData.preferences?.studyDestination || "",
+                                        interestedFields: userData.preferences?.interestedFields || "",
+                                        budgetRange: userData.preferences?.budgetRange || "",
+                                        intakePreference: userData.preferences?.intakePreference || "",
+                                    },
+                                })
+
+                                // Format date from YYYY-MM-DD to DD/MM/YYYY for display, then back for input
+                                const formatDateForInput = (dateStr: string) => {
+                                    if (!dateStr) return ""
+                                    // If already in YYYY-MM-DD format, return as is
+                                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr
+                                    // If in DD/MM/YYYY format, convert to YYYY-MM-DD
+                                    const parts = dateStr.split(/[-/]/)
+                                    if (parts.length === 3) {
+                                        // Check if it's DD/MM/YYYY or YYYY-MM-DD
+                                        if (parts[0].length === 4) {
+                                            return dateStr // Already in YYYY-MM-DD
+                                        }
+                                        // Convert DD/MM/YYYY to YYYY-MM-DD
+                                        return `${parts[2]}-${parts[1]}-${parts[0]}`
+                                    }
+                                    return dateStr
+                                }
+
+                                setEditablePersonalInfo({
+                                    dateOfBirth: formatDateForInput(profile.date_of_birth) || "",
+                                    gender: profile.gender || "",
+                                    graduationLevel: profile.graduation_level || "",
+                                })
+                            } else {
+                                // Fallback to local data only if API fails
+                                setFormData({
+                                    name:
+                                        userData.name ||
+                                        `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+                                        "",
+                                    email: userData.email || "",
+                                    phone: userData.phone_number || userData.phone || "",
+                                    username: userData.username || "",
+                                    nationality: userData.nationality || "",
+                                    address: userData.currentLocation || userData.address || "",
+                                    preferences: {
+                                        studyDestination: userData.preferences?.studyDestination || "",
+                                        interestedFields: userData.preferences?.interestedFields || "",
+                                        budgetRange: userData.preferences?.budgetRange || "",
+                                        intakePreference: userData.preferences?.intakePreference || "",
+                                    },
+                                })
+                            }
+                        } catch (err) {
+                            console.error("Error fetching profile from API:", err)
+                            // Use local data as fallback
+                            setFormData({
+                                name:
+                                    userData.name ||
+                                    `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+                                    "",
+                                email: userData.email || "",
+                                phone: userData.phone_number || userData.phone || "",
+                                username: userData.username || "",
+                                nationality: userData.nationality || "",
+                                address: userData.currentLocation || userData.address || "",
+                                preferences: {
+                                    studyDestination: userData.preferences?.studyDestination || "",
+                                    interestedFields: userData.preferences?.interestedFields || "",
+                                    budgetRange: userData.preferences?.budgetRange || "",
+                                    intakePreference: userData.preferences?.intakePreference || "",
+                                },
+                            })
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error loading user data:", error)
+                } finally {
+                    setIsFetchingProfile(false)
+                }
+            }
+        }
+
+        fetchUserData()
+    }, [])
 
     // Fetch education data on component mount
     useEffect(() => {
@@ -356,6 +487,38 @@ export default function EditProfilePage() {
         setExpandedEducation(expandedEducation === id ? null : id)
     }
 
+    const handleUpdatePersonalInfo = async () => {
+        setIsUpdatingPersonalInfo(true)
+        setPersonalInfoSaved(false)
+
+        try {
+            // Format date from YYYY-MM-DD to DD/MM/YYYY for API
+            const formatDateForAPI = (dateStr: string) => {
+                if (!dateStr) return ""
+                const parts = dateStr.split("-")
+                if (parts.length === 3) {
+                    return `${parts[2]}/${parts[1]}/${parts[0]}`
+                }
+                return dateStr
+            }
+
+            const response = await updateStudentProfile({
+                date_of_birth: formatDateForAPI(editablePersonalInfo.dateOfBirth),
+                gender: editablePersonalInfo.gender.toUpperCase(),
+                graduation_level: editablePersonalInfo.graduationLevel.toUpperCase(),
+            })
+
+            if (response.success) {
+                setPersonalInfoSaved(true)
+                setTimeout(() => setPersonalInfoSaved(false), 3000)
+            }
+        } catch (error) {
+            console.error("Error updating personal info:", error)
+        } finally {
+            setIsUpdatingPersonalInfo(false)
+        }
+    }
+
     const handleSave = async () => {
         setIsLoading(true)
         // Simulate API call
@@ -381,6 +544,82 @@ export default function EditProfilePage() {
         return colors[level as keyof typeof colors] || colors["Undergraduate"]
     }
 
+    // Show skeleton loader while data is being fetched
+    if (isFetchingProfile || isFetchingEducation) {
+        return (
+            <div className="min-h-screen bg-gray-50 animate-pulse">
+                <div className="max-w-6xl mx-auto p-6">
+                    {/* Header skeleton */}
+                    <div className="mb-6">
+                        <div className="h-10 w-40 bg-gray-200 rounded-md mb-4" />
+                        <div className="h-9 w-48 bg-gray-200 rounded-md mb-2" />
+                        <div className="h-5 w-64 bg-gray-200 rounded-md" />
+                    </div>
+
+                    <div className="space-y-6">
+                        {/* Personal Information skeleton */}
+                        <div className="bg-white rounded-xl border-l-4 border-l-gray-200 shadow-lg">
+                            <div className="p-6">
+                                <div className="h-6 w-48 bg-gray-200 rounded-md mb-4" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    {[1, 2, 3, 4].map((i) => (
+                                        <div key={i}>
+                                            <div className="h-4 w-32 bg-gray-200 rounded-md mb-2" />
+                                            <div className="h-10 w-full bg-gray-200 rounded-md" />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Additional Information skeleton */}
+                                <div className="border-t pt-6">
+                                    <div className="h-5 w-56 bg-gray-200 rounded-md mb-4" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        {[1, 2, 3].map((i) => (
+                                            <div key={i}>
+                                                <div className="h-4 w-32 bg-gray-200 rounded-md mb-2" />
+                                                <div className="h-10 w-full bg-gray-200 rounded-md" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="h-10 w-48 bg-gray-200 rounded-md" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Education History skeleton */}
+                        <div className="bg-white rounded-xl border-l-4 border-l-gray-200 shadow-lg">
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="h-6 w-48 bg-gray-200 rounded-md" />
+                                    <div className="h-9 w-36 bg-gray-200 rounded-md" />
+                                </div>
+
+                                {/* Education cards skeleton */}
+                                <div className="space-y-4">
+                                    {[1, 2].map((i) => (
+                                        <div key={i} className="bg-white rounded-xl border-2 border-gray-200 p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                                <div className="flex-1">
+                                                    <div className="h-5 w-48 bg-gray-200 rounded-md mb-2" />
+                                                    <div className="h-4 w-64 bg-gray-200 rounded-md mb-2" />
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div className="h-3 w-full bg-gray-200 rounded-md" />
+                                                        <div className="h-3 w-full bg-gray-200 rounded-md" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-6xl mx-auto p-6">
@@ -391,15 +630,9 @@ export default function EditProfilePage() {
                         Back to Profile
                     </Button>
 
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-                            <p className="text-gray-600">Update your profile information</p>
-                        </div>
-                        <Button onClick={handleSave} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                            <Save className="w-4 h-4 mr-2" />
-                            {isLoading ? "Saving..." : "Save Changes"}
-                        </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
+                        <p className="text-gray-600">Update your profile information</p>
                     </div>
                 </div>
 
@@ -415,13 +648,23 @@ export default function EditProfilePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                     <div>
                                         <label className="text-sm font-medium text-gray-600 mb-2 block">Full Name *</label>
                                         <Input
                                             value={formData.name}
-                                            onChange={(e) => handleInputChange("name", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            readOnly
+                                            disabled
+                                            className="border-gray-300 bg-gray-50 cursor-not-allowed"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-600 mb-2 block">Username</label>
+                                        <Input
+                                            value={formData.username}
+                                            readOnly
+                                            disabled
+                                            className="border-gray-300 bg-gray-50 cursor-not-allowed"
                                         />
                                     </div>
                                     <div>
@@ -429,43 +672,91 @@ export default function EditProfilePage() {
                                         <Input
                                             type="email"
                                             value={formData.email}
-                                            onChange={(e) => handleInputChange("email", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            readOnly
+                                            disabled
+                                            className="border-gray-300 bg-gray-50 cursor-not-allowed"
                                         />
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-600 mb-2 block">Phone Number *</label>
                                         <Input
                                             value={formData.phone}
-                                            onChange={(e) => handleInputChange("phone", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            readOnly
+                                            disabled
+                                            className="border-gray-300 bg-gray-50 cursor-not-allowed"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-600 mb-2 block">Date of Birth</label>
-                                        <Input
-                                            type="date"
-                                            value={formData.dateOfBirth}
-                                            onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                                        />
+                                </div>
+
+                                {/* Editable Personal Info Section with Update Button */}
+                                <div className="border-t pt-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                                            <Edit className="w-4 h-4" />
+                                            Additional Information (Editable)
+                                        </h3>
+                                        {personalInfoSaved && (
+                                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                <span>Updated successfully!</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-600 mb-2 block">Nationality</label>
-                                        <Input
-                                            value={formData.nationality}
-                                            onChange={(e) => handleInputChange("nationality", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                                        />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-600 mb-2 block">Date of Birth</label>
+                                            <Input
+                                                type="date"
+                                                value={editablePersonalInfo.dateOfBirth}
+                                                onChange={(e) => setEditablePersonalInfo({ ...editablePersonalInfo, dateOfBirth: e.target.value })}
+                                                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-600 mb-2 block">Gender</label>
+                                            <select
+                                                value={editablePersonalInfo.gender}
+                                                onChange={(e) => setEditablePersonalInfo({ ...editablePersonalInfo, gender: e.target.value })}
+                                                className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                            >
+                                                <option value="">Select Gender</option>
+                                                <option value="MALE">Male</option>
+                                                <option value="FEMALE">Female</option>
+                                                <option value="OTHER">Other</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-600 mb-2 block">Graduation Level</label>
+                                            <select
+                                                value={editablePersonalInfo.graduationLevel}
+                                                onChange={(e) => setEditablePersonalInfo({ ...editablePersonalInfo, graduationLevel: e.target.value })}
+                                                className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                            >
+                                                <option value="">Select Level</option>
+                                                <option value="HIGH_SCHOOL">High School</option>
+                                                <option value="UNDERGRADUATE">Undergraduate</option>
+                                                <option value="POSTGRADUATE">Postgraduate</option>
+                                                <option value="DOCTORATE">Doctorate</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-600 mb-2 block">Address</label>
-                                        <Input
-                                            value={formData.address}
-                                            onChange={(e) => handleInputChange("address", e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                                        />
-                                    </div>
+                                    <Button
+                                        onClick={handleUpdatePersonalInfo}
+                                        disabled={isUpdatingPersonalInfo}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                        {isUpdatingPersonalInfo ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Updating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4 mr-2" />
+                                                Update Personal Info
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -483,7 +774,6 @@ export default function EditProfilePage() {
                                         variant="outline"
                                         size="sm"
                                         className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                                        disabled={isFetchingEducation}
                                     >
                                         <Plus className="w-4 h-4 mr-1" />
                                         Add Education
@@ -491,16 +781,8 @@ export default function EditProfilePage() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                {/* Loading State */}
-                                {isFetchingEducation && (
-                                    <div className="flex items-center justify-center py-12">
-                                        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-                                        <span className="ml-3 text-gray-600">Loading education data...</span>
-                                    </div>
-                                )}
-
                                 {/* Error State */}
-                                {educationError && !isFetchingEducation && (
+                                {educationError && (
                                     <div className="text-center py-12">
                                         <div className="text-red-500 mb-4">{educationError}</div>
                                         <Button
@@ -514,7 +796,7 @@ export default function EditProfilePage() {
                                 )}
 
                                 {/* Education List */}
-                                {!isFetchingEducation && !educationError && (
+                                {!educationError && (
                                     <div className="space-y-4">
                                         {educationHistory.map((education, index) => {
                                             const isExpanded = expandedEducation === education.id
@@ -770,7 +1052,7 @@ export default function EditProfilePage() {
                                             )
                                         })}
 
-                                        {educationHistory.length === 0 && !isFetchingEducation && !educationError && (
+                                        {educationHistory.length === 0 && !educationError && (
                                             <div className="text-center py-12 px-4">
                                                 <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                                                 <p className="text-gray-500 mb-4">No education entries yet</p>
@@ -785,8 +1067,8 @@ export default function EditProfilePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Study Preferences */}
-                        <Card className="border-0 shadow-lg border-l-4 border-l-green-500">
+                        {/* Study Preferences - Commented Out */}
+                        {/* <Card className="border-0 shadow-lg border-l-4 border-l-green-500">
                             <CardHeader>
                                 <CardTitle className="flex items-center space-x-2">
                                     <Award className="w-5 h-5 text-green-600" />
@@ -833,10 +1115,10 @@ export default function EditProfilePage() {
                                     </div>
                                 </div>
                             </CardContent>
-                        </Card>
+                        </Card> */}
 
-                        {/* Action Buttons */}
-                        <div className="flex justify-end space-x-4">
+                        {/* Action Buttons - Removed */}
+                        {/* <div className="flex justify-end space-x-4">
                             <Button
                                 variant="outline"
                                 onClick={() => router.back()}
@@ -848,7 +1130,7 @@ export default function EditProfilePage() {
                                 <Save className="w-4 h-4 mr-2" />
                                 {isLoading ? "Saving..." : "Save Changes"}
                             </Button>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>

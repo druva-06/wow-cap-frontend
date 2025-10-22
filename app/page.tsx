@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getEncryptedUser } from "@/lib/encryption"
 import {
   Search,
   Globe,
@@ -551,8 +552,19 @@ export default function HomePage() {
 
                         // For study-abroad, call backend search (requires auth)
                         try {
-                          const userString = (typeof window !== 'undefined') ? (localStorage.getItem('wowcap_user') || sessionStorage.getItem('wowcap_user')) : null
-                          const hasUser = !!userString
+                          let hasUser = false
+                          if (typeof window !== 'undefined') {
+                            // Try encrypted storage first
+                            const userData = getEncryptedUser()
+                            hasUser = !!userData
+
+                            // Fallback to unencrypted
+                            if (!hasUser) {
+                              const userString = localStorage.getItem('wowcap_user') || sessionStorage.getItem('wowcap_user')
+                              hasUser = !!userString
+                            }
+                          }
+
                           const token = (typeof window !== 'undefined') ? (localStorage.getItem('wowcap_access_token') || sessionStorage.getItem('wowcap_access_token')) : null
                           if (!hasUser && !token) {
                             // not logged in -> redirect to login page

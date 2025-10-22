@@ -3,6 +3,7 @@
 import axios from "axios"
 import { toast } from "@/hooks/use-toast"
 import { getToken, clearTokens, getRefreshToken, saveToken } from "@/lib/auth"
+import { getEncryptedUser } from "@/lib/encryption"
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"
 
@@ -97,10 +98,21 @@ instance.interceptors.response.use(
         // Extract email from stored user profile
         let email: string | null = null
         try {
-          const raw = typeof window !== "undefined" ? localStorage.getItem("wowcap_user") : null
-          if (raw) {
-            const parsed = JSON.parse(raw)
-            email = parsed?.email || parsed?.username || null
+          if (typeof window !== "undefined") {
+            // Try encrypted storage first
+            let parsed = getEncryptedUser()
+            
+            // Fallback to unencrypted
+            if (!parsed) {
+              const raw = localStorage.getItem("wowcap_user")
+              if (raw) {
+                parsed = JSON.parse(raw)
+              }
+            }
+            
+            if (parsed) {
+              email = parsed?.email || parsed?.username || null
+            }
           }
         } catch {}
 

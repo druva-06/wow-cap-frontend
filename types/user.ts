@@ -3,6 +3,7 @@ export interface UnifiedUserProfile {
   name: string
   email: string
   phone: string
+  username?: string
   dateOfBirth: string
   nationality: string
   currentLocation: string

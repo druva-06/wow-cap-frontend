@@ -37,6 +37,7 @@ import {
   Key,
   UserCircle,
 } from "lucide-react"
+import { getEncryptedUser } from "@/lib/encryption"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -50,11 +51,19 @@ export function Header() {
   useEffect(() => {
     const checkAuthState = () => {
       try {
-        // Prefer wowcap_user from localStorage, fall back to sessionStorage
-        const userData = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
-        if (userData) {
+        // Try to get encrypted user data first
+        let user = getEncryptedUser()
+
+        // Fallback to unencrypted data
+        if (!user) {
+          const userData = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          if (userData) {
+            user = JSON.parse(userData)
+          }
+        }
+
+        if (user) {
           setIsLoggedIn(true)
-          const user = JSON.parse(userData)
           setUserName(user.name || "User")
           setProfilePicture(user.profile_picture || "")
           return
@@ -124,6 +133,11 @@ export function Header() {
 
   const handleLogout = () => {
     try {
+      // Remove encrypted data
+      const { removeEncryptedUser } = require("@/lib/encryption")
+      removeEncryptedUser()
+
+      // Remove unencrypted data
       localStorage.removeItem("wowcap_user")
       localStorage.removeItem("wowcap_documents")
       localStorage.removeItem("wowcap_applications")

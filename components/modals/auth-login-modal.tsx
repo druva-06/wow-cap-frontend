@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import LoginForm from "@/components/auth/login-form"
 import { User, Phone, Mail, Sparkles, MessageCircle } from "lucide-react"
+import { setEncryptedUser } from "@/lib/encryption"
 
 interface AuthLoginModalProps {
   isOpen: boolean
@@ -63,7 +64,8 @@ export function AuthLoginModal({ isOpen, onClose, onLoginComplete }: AuthLoginMo
         isNewUser: true,
       }
 
-      localStorage.setItem("wowcap_user", JSON.stringify(userData))
+      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      setEncryptedUser(userData, !rememberMe)
       onLoginComplete(userData)
       setLoading(false)
     }, 1500)
@@ -83,7 +85,8 @@ export function AuthLoginModal({ isOpen, onClose, onLoginComplete }: AuthLoginMo
         avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
       }
 
-      localStorage.setItem("wowcap_user", JSON.stringify(userData))
+      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      setEncryptedUser(userData, !rememberMe)
       onLoginComplete(userData)
       setLoading(false)
     }, 2000)

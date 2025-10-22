@@ -1,6 +1,7 @@
 import axios from "./axios"
 import type { LoginRequest, LoginApiResponse } from "./types"
 import { getToken } from "@/lib/auth"
+import { getEncryptedUser } from "@/lib/encryption"
 
 export async function login(data: LoginRequest): Promise<LoginApiResponse> {
   try {
@@ -287,10 +288,18 @@ export async function getStudentEducation(userId?: number): Promise<any> {
     // If userId not provided, try to get from localStorage
     if (!id && typeof window !== "undefined") {
       try {
-        const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
-        if (userString) {
-          const userData = JSON.parse(userString)
-          
+        // Try encrypted storage first
+        let userData = getEncryptedUser()
+        
+        // Fallback to unencrypted if needed
+        if (!userData) {
+          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          if (userString) {
+            userData = JSON.parse(userString)
+          }
+        }
+        
+        if (userData) {
           // Try to get student ID from different possible fields
           // First check for numeric IDs
           id = userData?.user_id || userData?.id || userData?.userId || userData?.student_id
@@ -334,9 +343,18 @@ export async function createStudentEducation(educationData: any): Promise<any> {
     // If userId not provided, try to get from localStorage
     if (!userId && typeof window !== "undefined") {
       try {
-        const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
-        if (userString) {
-          const userData = JSON.parse(userString)
+        // Try encrypted storage first
+        let userData = getEncryptedUser()
+        
+        // Fallback to unencrypted if needed
+        if (!userData) {
+          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          if (userString) {
+            userData = JSON.parse(userString)
+          }
+        }
+        
+        if (userData) {
           userId = userData?.user_id || userData?.id || userData?.userId || userData?.student_id
           
           if (!userId && userData?.studentId) {
@@ -414,6 +432,116 @@ export async function uploadProfileImage(file: File): Promise<any> {
         "Content-Type": "multipart/form-data",
         "Authorization": `Bearer ${token}`,
       },
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+// Student Profile API
+export async function getStudentProfile(userId?: number): Promise<any> {
+  try {
+    let id = userId
+
+    // If userId not provided, try to get from localStorage
+    if (!id && typeof window !== "undefined") {
+      try {
+        // Try encrypted storage first
+        let userData = getEncryptedUser()
+        
+        // Fallback to unencrypted if needed
+        if (!userData) {
+          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          if (userString) {
+            userData = JSON.parse(userString)
+          }
+        }
+        
+        if (userData) {
+          // Try to get user ID from different possible fields
+          id = userData?.user_id || userData?.id || userData?.userId
+          
+          // If not found, try to extract from studentId field (e.g., "WC15" → 15)
+          if (!id && userData?.studentId) {
+            const studentIdStr = String(userData.studentId)
+            const numericMatch = studentIdStr.match(/\d+/)
+            if (numericMatch) {
+              id = parseInt(numericMatch[0], 10)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get user ID from storage:", e)
+      }
+    }
+
+    if (!id) {
+      throw new Error("User ID not found. Please login again.")
+    }
+
+    console.log("Fetching profile for userId:", id)
+
+    const res = await axios.get(`/api/student/profile`, {
+      params: { userId: id }
+    })
+    return res.data
+  } catch (err: any) {
+    if (err?.response?.data) return err.response.data
+    throw err
+  }
+}
+
+// Update Student Profile API
+export async function updateStudentProfile(data: {
+  date_of_birth: string
+  gender: string
+  graduation_level: string
+}, userId?: number): Promise<any> {
+  try {
+    let id = userId
+
+    // If userId not provided, try to get from localStorage
+    if (!id && typeof window !== "undefined") {
+      try {
+        // Try encrypted storage first
+        let userData = getEncryptedUser()
+        
+        // Fallback to unencrypted if needed
+        if (!userData) {
+          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          if (userString) {
+            userData = JSON.parse(userString)
+          }
+        }
+        
+        if (userData) {
+          // Try to get user ID from different possible fields
+          id = userData?.user_id || userData?.id || userData?.userId
+          
+          // If not found, try to extract from studentId field (e.g., "WC15" → 15)
+          if (!id && userData?.studentId) {
+            const studentIdStr = String(userData.studentId)
+            const numericMatch = studentIdStr.match(/\d+/)
+            if (numericMatch) {
+              id = parseInt(numericMatch[0], 10)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get user ID from storage:", e)
+      }
+    }
+
+    if (!id) {
+      throw new Error("User ID not found. Please login again.")
+    }
+
+    console.log("Updating profile for userId:", id, "with data:", data)
+
+    const res = await axios.put(`/api/student/profile`, data, {
+      params: { userId: id }
     })
     return res.data
   } catch (err: any) {

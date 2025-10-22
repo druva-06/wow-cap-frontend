@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { getEncryptedUser } from "@/lib/encryption"
 import {
   MapPin,
   Clock,
@@ -65,14 +66,23 @@ export default function CourseDetailPage() {
 
   // Load user data
   useEffect(() => {
-    const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
-    if (userString) {
-      try {
-        const parsedUser = JSON.parse(userString) as UnifiedUserProfile
-        setUserData(parsedUser)
-      } catch (error) {
-        console.error("Error parsing user data", error)
+    // Try encrypted storage first
+    let parsedUser = getEncryptedUser()
+
+    if (!parsedUser) {
+      // Fallback to unencrypted
+      const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+      if (userString) {
+        try {
+          parsedUser = JSON.parse(userString)
+        } catch (error) {
+          console.error("Error parsing user data", error)
+        }
       }
+    }
+
+    if (parsedUser) {
+      setUserData(parsedUser)
     }
   }, [])
 

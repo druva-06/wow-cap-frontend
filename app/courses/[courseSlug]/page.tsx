@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { getEncryptedUser } from "@/lib/encryption"
 import {
   MapPin,
   Clock,
@@ -129,13 +130,19 @@ export default function CourseDetailPage() {
   const { university, course, type } = data
 
   const handleApplyNow = () => {
-    const userData = localStorage.getItem("wowcap_user") || localStorage.getItem("wowcap_lead_data")
-    const hasUserData = userData && JSON.parse(userData)
+    // Try encrypted storage first
+    let hasUserData: any = getEncryptedUser()
+
+    // Fallback to unencrypted or lead data
+    if (!hasUserData) {
+      const userData = localStorage.getItem("wowcap_user") || localStorage.getItem("wowcap_lead_data")
+      hasUserData = userData ? JSON.parse(userData) : null
+    }
 
     // Store current course interest for auto-fill
     if (hasUserData) {
       const updatedData = {
-        ...JSON.parse(userData),
+        ...hasUserData,
         lastCourseInterest: {
           universityId: university.id,
           courseId: course.id,
@@ -321,16 +328,16 @@ export default function CourseDetailPage() {
                         {intake.term} - Deadline: {intake.deadline}
                       </option>
                     )) || [
-                      <option key="fall" value="fall-2024" className="text-gray-900">
-                        Fall 2024
-                      </option>,
-                      <option key="spring" value="spring-2025" className="text-gray-900">
-                        Spring 2025
-                      </option>,
-                      <option key="fall-next" value="fall-2025" className="text-gray-900">
-                        Fall 2025
-                      </option>,
-                    ]}
+                        <option key="fall" value="fall-2024" className="text-gray-900">
+                          Fall 2024
+                        </option>,
+                        <option key="spring" value="spring-2025" className="text-gray-900">
+                          Spring 2025
+                        </option>,
+                        <option key="fall-next" value="fall-2025" className="text-gray-900">
+                          Fall 2025
+                        </option>,
+                      ]}
                   </select>
                   <textarea
                     placeholder="More Information"
@@ -722,13 +729,12 @@ export default function CourseDetailPage() {
                     ].map((timeline, index) => (
                       <div key={index} className="flex items-center gap-4">
                         <div
-                          className={`w-4 h-4 rounded-full ${
-                            timeline.status === "completed"
+                          className={`w-4 h-4 rounded-full ${timeline.status === "completed"
                               ? "bg-green-500"
                               : timeline.status === "current"
                                 ? "bg-blue-500 animate-pulse"
                                 : "bg-gray-300"
-                          }`}
+                            }`}
                         />
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{timeline.phase}</div>
@@ -789,11 +795,10 @@ export default function CourseDetailPage() {
                             </div>
                           </div>
                           <Badge
-                            className={`${
-                              growthLevels[index] === "Very High"
+                            className={`${growthLevels[index] === "Very High"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-blue-100 text-blue-800"
-                            }`}
+                              }`}
                           >
                             {growthLevels[index]} Growth
                           </Badge>

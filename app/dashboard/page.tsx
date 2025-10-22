@@ -49,6 +49,7 @@ import {
 } from "lucide-react"
 import type { UnifiedUserProfile } from "@/types/user"
 import { toast } from "@/hooks/use-toast"
+import { getEncryptedUser, setEncryptedUser } from "@/lib/encryption"
 import { getWishlistItems, removeWishlistItem, uploadDocument, getDocumentsList, deleteDocument, startCourseRegistration, getStudentRegistrations } from "@/lib/api/client"
 import { IntakeSelectionModal } from "@/components/modals/intake-selection-modal"
 
@@ -1187,7 +1188,16 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("wowcap_user") || "null")
+    // Try encrypted storage first
+    let userData = getEncryptedUser()
+
+    // Fallback to unencrypted
+    if (!userData) {
+      const userString = localStorage.getItem("wowcap_user")
+      if (userString) {
+        userData = JSON.parse(userString)
+      }
+    }
 
     if (userData) {
       setUser(userData)
@@ -1235,7 +1245,16 @@ export default function DashboardPage() {
   }, [tasks])
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("wowcap_user") || "null")
+    // Try encrypted storage first
+    let userData = getEncryptedUser()
+
+    // Fallback to unencrypted
+    if (!userData) {
+      const userString = localStorage.getItem("wowcap_user")
+      if (userString) {
+        userData = JSON.parse(userString)
+      }
+    }
 
     const updates = JSON.parse(localStorage.getItem("application_status_updates") || "[]")
     setStatusUpdates(
@@ -1255,9 +1274,14 @@ export default function DashboardPage() {
     if (!isDocumentsTab) return
     if (!user) return
 
-    // Get user data from localStorage
-    const userData = localStorage.getItem("wowcap_user")
-    const parsedUserData = userData ? JSON.parse(userData) : null
+    // Get user data from encrypted storage first
+    let parsedUserData = getEncryptedUser()
+
+    // Fallback to unencrypted
+    if (!parsedUserData) {
+      const userData = localStorage.getItem("wowcap_user")
+      parsedUserData = userData ? JSON.parse(userData) : null
+    }
 
     // Get user ID - try multiple fields
     const userId = parsedUserData?.studentId || parsedUserData?.id || user?.studentId || (user as any)?.id
@@ -1365,9 +1389,12 @@ export default function DashboardPage() {
   }
 
   const handleLogout = () => {
+    const { removeEncryptedUser } = require("@/lib/encryption")
+    removeEncryptedUser()
     localStorage.removeItem("wowcap_user")
     localStorage.removeItem("wowcap_applications")
     localStorage.removeItem("wowcap_tasks")
+    sessionStorage.removeItem("wowcap_user")
     router.push("/")
   }
 
@@ -1675,9 +1702,14 @@ export default function DashboardPage() {
       setLoading(true)
       setDocumentError("")
 
-      // Get user data from localStorage
-      const userData = localStorage.getItem("wowcap_user")
-      const parsedUserData = userData ? JSON.parse(userData) : null
+      // Get user data from encrypted storage first
+      let parsedUserData = getEncryptedUser()
+
+      // Fallback to unencrypted
+      if (!parsedUserData) {
+        const userData = localStorage.getItem("wowcap_user")
+        parsedUserData = userData ? JSON.parse(userData) : null
+      }
 
       // Get user ID - try multiple fields
       const userId = parsedUserData?.studentId || parsedUserData?.id || user?.studentId || (user as any)?.id
@@ -2052,7 +2084,9 @@ export default function DashboardPage() {
   // Profile functions
   const saveProfile = () => {
     if (user) {
-      localStorage.setItem("wowcap_user", JSON.stringify(user))
+      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      // Store encrypted user data ONLY
+      setEncryptedUser(user, !rememberMe)
       setEditingProfile(false)
       showToast("Profile Saved", "Your profile has been updated successfully")
     }

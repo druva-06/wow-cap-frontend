@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { getEncryptedUser, setEncryptedUser } from "@/lib/encryption"
 import {
   Upload,
   FileText,
@@ -236,10 +237,19 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
   const [showCustomUpload, setShowCustomUpload] = useState(false)
 
   useEffect(() => {
-    // Load user data
-    const userData = localStorage.getItem("wowcap_user")
+    // Load user data - try encrypted storage first
+    let userData = getEncryptedUser()
+
+    if (!userData) {
+      // Fallback to unencrypted
+      const userDataString = localStorage.getItem("wowcap_user")
+      if (userDataString) {
+        userData = JSON.parse(userDataString)
+      }
+    }
+
     if (userData) {
-      setUser(JSON.parse(userData))
+      setUser(userData)
     }
 
     if (isSetup) {
@@ -639,10 +649,18 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
 
   const handleComplete = () => {
     if (isSetup) {
-      // Update user's document vault setup status
-      const userData = JSON.parse(localStorage.getItem("wowcap_user") || "{}")
+      // Update user's document vault setup status - use encrypted storage
+      let userData = getEncryptedUser()
+
+      if (!userData) {
+        // Fallback to unencrypted
+        const userDataString = localStorage.getItem("wowcap_user")
+        userData = userDataString ? JSON.parse(userDataString) : {}
+      }
+
       userData.documentVaultSetup = true
-      localStorage.setItem("wowcap_user", JSON.stringify(userData))
+      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      setEncryptedUser(userData, !rememberMe)
 
       router.push("/dashboard?tab=overview&vault-setup=complete")
     } else {
@@ -663,11 +681,10 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
 
     return (
       <div
-        className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${
-          isDragOver
+        className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${isDragOver
             ? "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
             : "border-slate-300 hover:border-slate-400 hover:bg-slate-50"
-        }`}
+          }`}
         onDragOver={(e) => handleDragOver(e, doc.id)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, doc.id, parentDocId)}
@@ -755,9 +772,8 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  hasUploaded ? "bg-emerald-100" : "bg-slate-100"
-                }`}
+                className={`w-12 h-12 rounded-xl flex items-center justify-center ${hasUploaded ? "bg-emerald-100" : "bg-slate-100"
+                  }`}
               >
                 {hasUploaded ? (
                   <CheckCircle className="w-6 h-6 text-emerald-600" />
@@ -1027,11 +1043,10 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
               <Button
                 variant={activeView === "shared" ? "default" : "outline"}
                 onClick={() => setActiveView("shared")}
-                className={`flex items-center gap-2 ${
-                  activeView === "shared"
+                className={`flex items-center gap-2 ${activeView === "shared"
                     ? "bg-blue-600 hover:bg-blue-700 text-white"
                     : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <Share2 className="w-4 h-4" />
                 Shared Documents ({sharedDocs.length})
@@ -1039,11 +1054,10 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
               <Button
                 variant={activeView === "university-specific" ? "default" : "outline"}
                 onClick={() => setActiveView("university-specific")}
-                className={`flex items-center gap-2 ${
-                  activeView === "university-specific"
+                className={`flex items-center gap-2 ${activeView === "university-specific"
                     ? "bg-blue-600 hover:bg-blue-700 text-white"
                     : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <Building className="w-4 h-4" />
                 University Specific ({universityDocs.length})

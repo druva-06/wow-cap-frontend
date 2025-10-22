@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getEncryptedUser, setEncryptedUser } from "@/lib/encryption"
 import {
   Search,
   ArrowUpDown,
@@ -71,9 +72,18 @@ function StudyOnlineSearchContent() {
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
-    const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
-    if (userString) {
-      const parsedUser = JSON.parse(userString) as UnifiedUserProfile
+    // Try encrypted storage first
+    let parsedUser = getEncryptedUser()
+
+    if (!parsedUser) {
+      // Fallback to unencrypted
+      const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+      if (userString) {
+        parsedUser = JSON.parse(userString)
+      }
+    }
+
+    if (parsedUser) {
       setIsLoggedIn(true)
       setUserData(parsedUser)
       setAuthLoading(false)
@@ -106,7 +116,8 @@ function StudyOnlineSearchContent() {
     setUserData(newUserData)
     setShowLoginModal(false)
 
-    localStorage.setItem("wowcap_user", JSON.stringify(newUserData))
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(newUserData, !rememberMe)
     window.dispatchEvent(new Event("authStateChanged"))
 
     if (!newUserData.profileCompleted) {
@@ -497,8 +508,8 @@ function StudyOnlineSearchContent() {
                             <button
                               onClick={() => toggleComparison(course.id)}
                               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors comparison-checkbox ${comparisonList.includes(course.id)
-                                  ? "bg-blue-600 border-blue-600 text-white"
-                                  : "bg-white border-gray-300 hover:border-blue-400"
+                                ? "bg-blue-600 border-blue-600 text-white"
+                                : "bg-white border-gray-300 hover:border-blue-400"
                                 }`}
                             >
                               {comparisonList.includes(course.id) && <Check className="w-3 h-3" />}

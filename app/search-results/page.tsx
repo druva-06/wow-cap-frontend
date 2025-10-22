@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getEncryptedUser, setEncryptedUser, removeEncryptedUser } from "@/lib/encryption"
 import {
   Search,
   ArrowUpDown,
@@ -87,21 +88,32 @@ function SearchResultsContent() {
 
   useEffect(() => {
     console.log("[v0] SearchResults: Auth check starting")
-    const userString = (localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user"))
-    if (userString) {
-      try {
-        const parsedUser = JSON.parse(userString) as UnifiedUserProfile
-        setIsLoggedIn(true)
-        setUserData(parsedUser)
-        setAuthLoading(false)
-        console.log("[v0] SearchResults: User found, logged in")
-      } catch (error) {
-        console.error("[v0] SearchResults: Error parsing user data", error)
-        localStorage.removeItem("wowcap_user")
-        sessionStorage.removeItem("wowcap_user")
-        setAuthLoading(false)
-        setShowLoginModal(true)
+    // Try encrypted storage first
+    let parsedUser = getEncryptedUser()
+
+    if (!parsedUser) {
+      // Fallback to unencrypted
+      const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+      if (userString) {
+        try {
+          parsedUser = JSON.parse(userString)
+        } catch (error) {
+          console.error("[v0] SearchResults: Error parsing user data", error)
+          removeEncryptedUser()
+          localStorage.removeItem("wowcap_user")
+          sessionStorage.removeItem("wowcap_user")
+          setAuthLoading(false)
+          setShowLoginModal(true)
+          return
+        }
       }
+    }
+
+    if (parsedUser) {
+      setIsLoggedIn(true)
+      setUserData(parsedUser)
+      setAuthLoading(false)
+      console.log("[v0] SearchResults: User found, logged in")
     } else {
       setAuthLoading(false)
       setShowLoginModal(true)
@@ -254,8 +266,9 @@ function SearchResultsContent() {
     setUserData(newUserData)
     setShowLoginModal(false)
 
-    // Force re-render by updating localStorage immediately
-    localStorage.setItem("wowcap_user", JSON.stringify(newUserData))
+    // Store encrypted user data
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(newUserData, !rememberMe)
 
     window.dispatchEvent(new Event("authStateChanged"))
 

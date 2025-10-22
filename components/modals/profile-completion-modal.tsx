@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { setEncryptedUser } from "@/lib/encryption"
 import {
   CheckCircle,
   Target,
@@ -189,7 +190,8 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       },
     }
 
-    localStorage.setItem("wowcap_user", JSON.stringify(completeProfile))
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(completeProfile, !rememberMe)
     localStorage.setItem("wowcap_profile_completion_date", new Date().toISOString())
     localStorage.setItem("wowcap_vertical_preference", currentCategory)
 
@@ -219,7 +221,8 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       signupTime: userData?.signupTime || new Date().toISOString(),
     }
 
-    localStorage.setItem("wowcap_user", JSON.stringify(skippedProfile))
+    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    setEncryptedUser(skippedProfile, !rememberMe)
     onSkip()
   }
 

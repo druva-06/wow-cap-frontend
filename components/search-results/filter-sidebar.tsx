@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getEncryptedUser } from "@/lib/encryption"
 import {
   ChevronDown,
   X,
@@ -103,10 +104,19 @@ export function FilterSidebar({ onFilterChange, vertical }: FilterSidebarProps) 
 
   useEffect(() => {
     // Check user login status and tier
-    const user = localStorage.getItem("wowcap_user")
-    if (user) {
+    // Try encrypted storage first
+    let userData = getEncryptedUser()
+
+    // Fallback to unencrypted
+    if (!userData) {
+      const user = localStorage.getItem("wowcap_user")
+      if (user) {
+        userData = JSON.parse(user)
+      }
+    }
+
+    if (userData) {
       setIsLoggedIn(true)
-      const userData = JSON.parse(user)
       setUserTier(userData.tier || "free")
     }
   }, [])
