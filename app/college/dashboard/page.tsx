@@ -66,7 +66,7 @@ export default function CollegeDashboardPage() {
 
   useEffect(() => {
     // Check authentication
-    const college = localStorage.getItem("wowcap_college")
+    const college = localStorage.getItem("meritcap_college")
     if (!college) {
       router.push("/college/login")
       return

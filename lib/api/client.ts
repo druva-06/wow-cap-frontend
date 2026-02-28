@@ -293,7 +293,7 @@ export async function getStudentEducation(userId?: number): Promise<any> {
         
         // Fallback to unencrypted if needed
         if (!userData) {
-          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
           if (userString) {
             userData = JSON.parse(userString)
           }
@@ -348,7 +348,7 @@ export async function createStudentEducation(educationData: any): Promise<any> {
         
         // Fallback to unencrypted if needed
         if (!userData) {
-          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
           if (userString) {
             userData = JSON.parse(userString)
           }
@@ -453,7 +453,7 @@ export async function getStudentProfile(userId?: number): Promise<any> {
         
         // Fallback to unencrypted if needed
         if (!userData) {
-          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
           if (userString) {
             userData = JSON.parse(userString)
           }
@@ -510,7 +510,7 @@ export async function updateStudentProfile(data: {
         
         // Fallback to unencrypted if needed
         if (!userData) {
-          const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
           if (userString) {
             userData = JSON.parse(userString)
           }

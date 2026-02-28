@@ -47,7 +47,7 @@ export default function CollegeLoginPage() {
 
     setTimeout(() => {
       localStorage.setItem(
-        "wowcap_college",
+        "meritcap_college",
         JSON.stringify({
           email: formData.email,
           name: formData.email.split("@")[0],

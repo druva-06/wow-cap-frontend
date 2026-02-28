@@ -68,7 +68,7 @@ export default function AdminLoginPage() {
             <Link href="/" className="flex items-center space-x-3">
               <div className="text-2xl">🎓</div>
               <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                WowCap
+                MeritCap
               </div>
             </Link>
             <div className="flex items-center space-x-2 text-red-600">
@@ -270,7 +270,7 @@ export default function AdminLoginPage() {
 
             {/* Footer */}
             <div className="text-center mt-8 text-sm text-gray-500">
-              <p>© 2024 WowCap Education. All rights reserved.</p>
+              <p>© 2024 MeritCap Education. All rights reserved.</p>
               <p className="mt-1">Secure admin access portal</p>
             </div>
           </div>

@@ -56,7 +56,7 @@ export function Header() {
 
         // Fallback to unencrypted data
         if (!user) {
-          const userData = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+          const userData = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
           if (userData) {
             user = JSON.parse(userData)
           }
@@ -70,7 +70,7 @@ export function Header() {
         }
 
         // fallback: check for access token presence
-        const token = localStorage.getItem("wowcap_access_token") || sessionStorage.getItem("wowcap_access_token")
+        const token = localStorage.getItem("meritcap_access_token") || sessionStorage.getItem("meritcap_access_token")
         if (token) {
           setIsLoggedIn(true)
           setUserName("User")
@@ -93,7 +93,7 @@ export function Header() {
 
     // Listen for storage changes (when user logs in from other components)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "wowcap_user") {
+      if (e.key === "meritcap_user") {
         checkAuthState()
       }
     }
@@ -138,18 +138,18 @@ export function Header() {
       removeEncryptedUser()
 
       // Remove unencrypted data
-      localStorage.removeItem("wowcap_user")
-      localStorage.removeItem("wowcap_documents")
-      localStorage.removeItem("wowcap_applications")
-      localStorage.removeItem("wowcap_tasks")
-      sessionStorage.removeItem("wowcap_user")
+      localStorage.removeItem("meritcap_user")
+      localStorage.removeItem("meritcap_documents")
+      localStorage.removeItem("meritcap_applications")
+      localStorage.removeItem("meritcap_tasks")
+      sessionStorage.removeItem("meritcap_user")
     } catch (e) { }
     // clear tokens
     try {
-      localStorage.removeItem("wowcap_access_token")
-      localStorage.removeItem("wowcap_refresh_token")
-      sessionStorage.removeItem("wowcap_access_token")
-      sessionStorage.removeItem("wowcap_refresh_token")
+      localStorage.removeItem("meritcap_access_token")
+      localStorage.removeItem("meritcap_refresh_token")
+      sessionStorage.removeItem("meritcap_access_token")
+      sessionStorage.removeItem("meritcap_refresh_token")
     } catch (e) { }
 
     // notify other components
@@ -178,7 +178,7 @@ export function Header() {
             </div>
             <div className="flex flex-col">
               <div className="text-2xl font-black bg-gradient-to-r from-slate-800 via-blue-700 to-indigo-800 bg-clip-text text-transparent tracking-tight">
-                WowCap
+                MeritCap
               </div>
               <div className="text-xs text-gray-500 font-medium tracking-wider -mt-1">EDUCATION PLATFORM</div>
             </div>

@@ -282,7 +282,7 @@ export default function StudentCommunityPage() {
       avatar: "RK",
       title: "Study Abroad Counselor",
       experience: "15+ years",
-      institution: "WowCap Education",
+      institution: "MeritCap Education",
       type: "faculty",
       contributions: 8,
       expertise: ["USA", "Canada", "Admissions"],
@@ -1053,7 +1053,7 @@ export default function StudentCommunityPage() {
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <p className="text-sm text-green-800">
-                        📱 Message Preview: "Join my study session on WowCap! We're studying [Topic]. Register here:
+                        📱 Message Preview: "Join my study session on MeritCap! We're studying [Topic]. Register here:
                         [Link]"
                       </p>
                     </div>

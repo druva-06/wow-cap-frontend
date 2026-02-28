@@ -53,7 +53,7 @@ export function UniversalLoginModal({ isOpen, onClose, onComplete }: UniversalLo
       signupTime: new Date().toISOString(),
     }
 
-    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
     setEncryptedUser(userData, !rememberMe)
     onComplete(userData)
     onClose()
@@ -75,7 +75,7 @@ export function UniversalLoginModal({ isOpen, onClose, onComplete }: UniversalLo
       loginTime: new Date().toISOString(),
     }
 
-    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
     setEncryptedUser(userData, !rememberMe)
     onComplete(userData)
     onClose()

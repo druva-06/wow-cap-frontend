@@ -61,7 +61,7 @@ export default function AIChatbot({ currentPage }: ChatbotProps) {
     const welcomeMessages: Record<string, string[]> = {
       home: [
         "Hi! I'm WOW BOT and your career Assistant! Looking to study abroad? I can help you find the perfect program!",
-        "Welcome to WowCap! I'm WOW BOT and your career Assistant here to guide you through your study abroad journey. What are you most interested in?",
+        "Welcome to MeritCap! I'm WOW BOT and your career Assistant here to guide you through your study abroad journey. What are you most interested in?",
         "Hello! I'm WOW BOT and your career Assistant. Ready to explore amazing study opportunities? I can help you discover programs that match your goals!",
       ],
       dashboard: [

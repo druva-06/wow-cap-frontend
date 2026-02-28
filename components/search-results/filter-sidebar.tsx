@@ -109,7 +109,7 @@ export function FilterSidebar({ onFilterChange, vertical }: FilterSidebarProps) 
 
     // Fallback to unencrypted
     if (!userData) {
-      const user = localStorage.getItem("wowcap_user")
+      const user = localStorage.getItem("meritcap_user")
       if (user) {
         userData = JSON.parse(user)
       }

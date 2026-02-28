@@ -3,7 +3,7 @@
 // Simple encryption/decryption utility using AES-like approach with Web Crypto API
 // For production, consider using a more robust library like crypto-js
 
-const ENCRYPTION_KEY = "wowcap-secure-key-2025" // In production, this should be an environment variable
+const ENCRYPTION_KEY = "meritcap-secure-key-2025" // In production, this should be an environment variable
 
 /**
  * Encrypts data using a simple XOR cipher with base64 encoding
@@ -65,17 +65,17 @@ export function setEncryptedUser(userData: any, useSessionStorage = false): void
     console.log("[Encryption] Data encrypted successfully, length:", encrypted.length)
     
     if (useSessionStorage) {
-      sessionStorage.setItem("wowcap_user_secure", encrypted)
-      console.log("[Encryption] Stored in sessionStorage as 'wowcap_user_secure'")
+      sessionStorage.setItem("meritcap_user_secure", encrypted)
+      console.log("[Encryption] Stored in sessionStorage as 'meritcap_user_secure'")
     } else {
-      localStorage.setItem("wowcap_user_secure", encrypted)
-      console.log("[Encryption] Stored in localStorage as 'wowcap_user_secure'")
+      localStorage.setItem("meritcap_user_secure", encrypted)
+      console.log("[Encryption] Stored in localStorage as 'meritcap_user_secure'")
     }
     
     // Verify it was stored
     const stored = useSessionStorage 
-      ? sessionStorage.getItem("wowcap_user_secure")
-      : localStorage.getItem("wowcap_user_secure")
+      ? sessionStorage.getItem("meritcap_user_secure")
+      : localStorage.getItem("meritcap_user_secure")
     console.log("[Encryption] Verification - Data stored successfully:", !!stored)
   } catch (error) {
     console.error("[Encryption] Failed to store encrypted user data:", error)
@@ -88,12 +88,12 @@ export function setEncryptedUser(userData: any, useSessionStorage = false): void
 export function getEncryptedUser(): any {
   try {
     // Try localStorage first
-    let encrypted = localStorage.getItem("wowcap_user_secure")
+    let encrypted = localStorage.getItem("meritcap_user_secure")
     let storageType = "localStorage"
     
     // Fallback to sessionStorage
     if (!encrypted) {
-      encrypted = sessionStorage.getItem("wowcap_user_secure")
+      encrypted = sessionStorage.getItem("meritcap_user_secure")
       storageType = "sessionStorage"
     }
     
@@ -119,8 +119,8 @@ export function getEncryptedUser(): any {
  */
 export function removeEncryptedUser(): void {
   try {
-    localStorage.removeItem("wowcap_user_secure")
-    sessionStorage.removeItem("wowcap_user_secure")
+    localStorage.removeItem("meritcap_user_secure")
+    sessionStorage.removeItem("meritcap_user_secure")
   } catch (error) {
     console.error("Failed to remove encrypted user data:", error)
   }
@@ -132,11 +132,11 @@ export function removeEncryptedUser(): void {
 export function migrateToEncryptedStorage(): void {
   try {
     // Check for existing unencrypted data
-    const unencryptedData = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+    const unencryptedData = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
     
     if (unencryptedData) {
       const userData = JSON.parse(unencryptedData)
-      const useSession = !!sessionStorage.getItem("wowcap_user")
+      const useSession = !!sessionStorage.getItem("meritcap_user")
       
       // Store encrypted version
       setEncryptedUser(userData, useSession)

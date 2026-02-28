@@ -64,7 +64,7 @@ export function AuthLoginModal({ isOpen, onClose, onLoginComplete }: AuthLoginMo
         isNewUser: true,
       }
 
-      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
       setEncryptedUser(userData, !rememberMe)
       onLoginComplete(userData)
       setLoading(false)
@@ -85,7 +85,7 @@ export function AuthLoginModal({ isOpen, onClose, onLoginComplete }: AuthLoginMo
         avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
       }
 
-      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
       setEncryptedUser(userData, !rememberMe)
       onLoginComplete(userData)
       setLoading(false)

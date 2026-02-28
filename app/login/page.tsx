@@ -251,9 +251,9 @@ export default function LoginPage() {
             console.error("[Login] Failed to store encrypted data:", e)
             // Fallback to unencrypted storage
             if (formData.rememberMe) {
-              localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+              localStorage.setItem("meritcap_user", JSON.stringify(mapped))
             } else {
-              sessionStorage.setItem("wowcap_user", JSON.stringify(mapped))
+              sessionStorage.setItem("meritcap_user", JSON.stringify(mapped))
             }
           }
           // Notify other components in the same window to refresh auth state

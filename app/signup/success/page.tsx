@@ -48,7 +48,7 @@ export default function SignupSuccessPage() {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-2">
                             Account Created Successfully! 🎉
                         </h1>
-                        <p className="text-gray-600">Welcome to WowCap{displayName ? `, ${displayName}` : ""}!</p>
+                        <p className="text-gray-600">Welcome to MeritCap{displayName ? `, ${displayName}` : ""}!</p>
                     </div>
 
                     <div className="text-center">

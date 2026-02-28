@@ -54,7 +54,7 @@ export default function CounselorDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const counselorData = localStorage.getItem("wowcap_counselor")
+    const counselorData = localStorage.getItem("meritcap_counselor")
     if (!counselorData) {
       router.push("/counselor/login")
       return
@@ -63,7 +63,7 @@ export default function CounselorDashboard() {
   }, [router])
 
   const handleLogout = () => {
-    localStorage.removeItem("wowcap_counselor")
+    localStorage.removeItem("meritcap_counselor")
     router.push("/counselor/login")
   }
 

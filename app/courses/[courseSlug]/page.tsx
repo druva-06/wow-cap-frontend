@@ -135,7 +135,7 @@ export default function CourseDetailPage() {
 
     // Fallback to unencrypted or lead data
     if (!hasUserData) {
-      const userData = localStorage.getItem("wowcap_user") || localStorage.getItem("wowcap_lead_data")
+      const userData = localStorage.getItem("meritcap_user") || localStorage.getItem("meritcap_lead_data")
       hasUserData = userData ? JSON.parse(userData) : null
     }
 
@@ -151,7 +151,7 @@ export default function CourseDetailPage() {
           timestamp: new Date().toISOString(),
         },
       }
-      localStorage.setItem("wowcap_lead_data", JSON.stringify(updatedData))
+      localStorage.setItem("meritcap_lead_data", JSON.stringify(updatedData))
     }
 
     // Navigate with auto-fill parameter if user data exists

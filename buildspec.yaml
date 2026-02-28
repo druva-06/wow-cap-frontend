@@ -6,7 +6,7 @@ env:
     EC2_INSTANCE_ID: i-08a40d8c2c9193d3b
     REGION: ap-south-2
     APP_DIR: /opt/cap/frontend
-    SERVICE_NAME: wowcap-frontend
+    SERVICE_NAME: meritcap-frontend
     NODE_VERSION_SETUP: "18"
 
 phases:
@@ -78,7 +78,7 @@ phases:
             "cd '"$APP_DIR"'",
             "npm ci --production || true",
             "echo Creating systemd service file if missing...",
-            "if [ ! -f /etc/systemd/system/'"$SERVICE_NAME"'.service ]; then cat > /etc/systemd/system/'"$SERVICE_NAME"'.service <<'SERVICE_EOF'\n[Unit]\nDescription=Wowcap Frontend (Next.js)\nAfter=network.target\n\n[Service]\nType=simple\nUser=ubuntu\nWorkingDirectory='"$APP_DIR"'\nEnvironment=NODE_ENV=production\nExecStart=/usr/bin/npm start\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF\nfi",
+            "if [ ! -f /etc/systemd/system/'"$SERVICE_NAME"'.service ]; then cat > /etc/systemd/system/'"$SERVICE_NAME"'.service <<'SERVICE_EOF'\n[Unit]\nDescription=MeritCap Frontend (Next.js)\nAfter=network.target\n\n[Service]\nType=simple\nUser=ubuntu\nWorkingDirectory='"$APP_DIR"'\nEnvironment=NODE_ENV=production\nExecStart=/usr/bin/npm start\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nSERVICE_EOF\nfi",
             "echo Reloading systemd and restarting service...",
             "systemctl daemon-reload || true",
             "systemctl enable '"$SERVICE_NAME"' || true",

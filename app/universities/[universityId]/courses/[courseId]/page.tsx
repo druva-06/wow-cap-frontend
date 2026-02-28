@@ -71,7 +71,7 @@ export default function CourseDetailPage() {
 
     if (!parsedUser) {
       // Fallback to unencrypted
-      const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+      const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
       if (userString) {
         try {
           parsedUser = JSON.parse(userString)

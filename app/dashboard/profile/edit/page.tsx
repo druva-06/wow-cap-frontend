@@ -78,7 +78,7 @@ export default function EditProfilePage() {
                     // Fallback to unencrypted
                     if (!userData) {
                         const userString =
-                            localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+                            localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
                         if (userString) {
                             userData = JSON.parse(userString)
                         }

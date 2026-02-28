@@ -131,7 +131,7 @@ export default function ViewProfilePage() {
           // Fallback to unencrypted
           if (!userData) {
             const userString =
-              localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+              localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
             if (userString) {
               userData = JSON.parse(userString)
             }
@@ -279,7 +279,7 @@ export default function ViewProfilePage() {
         setLoading(true)
         setError(null)
 
-        // Fetch education data from API (userId retrieved from localStorage wowcap_user)
+        // Fetch education data from API (userId retrieved from localStorage meritcap_user)
         const response = await getStudentEducation()
 
         if (response.success && Array.isArray(response.response)) {
@@ -429,7 +429,7 @@ export default function ViewProfilePage() {
         // Update localStorage with the new profile picture URL
         if (typeof window !== "undefined") {
           try {
-            const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+            const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
 
             // Try to get encrypted user data first
             let userData: any = getEncryptedUser()
@@ -437,7 +437,7 @@ export default function ViewProfilePage() {
             // Fallback to unencrypted
             if (!userData) {
               const userString =
-                localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+                localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
               if (userString) {
                 userData = JSON.parse(userString)
               }

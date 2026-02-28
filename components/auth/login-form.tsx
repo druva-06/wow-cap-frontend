@@ -71,9 +71,9 @@ export default function LoginForm({ onSuccess, onCancel }: LoginFormProps) {
                     console.error("[LoginForm] Failed to store encrypted data:", e)
                     // Fallback to unencrypted storage
                     if (rememberMe) {
-                        localStorage.setItem("wowcap_user", JSON.stringify(mapped))
+                        localStorage.setItem("meritcap_user", JSON.stringify(mapped))
                     } else {
-                        sessionStorage.setItem("wowcap_user", JSON.stringify(mapped))
+                        sessionStorage.setItem("meritcap_user", JSON.stringify(mapped))
                     }
                 }
 

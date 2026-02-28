@@ -190,10 +190,10 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       },
     }
 
-    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
     setEncryptedUser(completeProfile, !rememberMe)
-    localStorage.setItem("wowcap_profile_completion_date", new Date().toISOString())
-    localStorage.setItem("wowcap_vertical_preference", currentCategory)
+    localStorage.setItem("meritcap_profile_completion_date", new Date().toISOString())
+    localStorage.setItem("meritcap_vertical_preference", currentCategory)
 
     onComplete(completeProfile)
   }
@@ -221,7 +221,7 @@ export function ProfileCompletionModal({ isOpen, onClose, onComplete, onSkip, us
       signupTime: userData?.signupTime || new Date().toISOString(),
     }
 
-    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
     setEncryptedUser(skippedProfile, !rememberMe)
     onSkip()
   }

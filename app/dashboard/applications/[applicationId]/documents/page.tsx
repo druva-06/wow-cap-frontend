@@ -242,7 +242,7 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
 
     if (!userData) {
       // Fallback to unencrypted
-      const userDataString = localStorage.getItem("wowcap_user")
+      const userDataString = localStorage.getItem("meritcap_user")
       if (userDataString) {
         userData = JSON.parse(userDataString)
       }
@@ -272,14 +272,14 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
     setDocuments(docs)
 
     // Load existing shared documents
-    const savedShared = localStorage.getItem("wowcap_shared_documents")
+    const savedShared = localStorage.getItem("meritcap_shared_documents")
     if (savedShared) {
       setSharedDocuments(JSON.parse(savedShared))
     }
   }
 
   const loadApplicationData = () => {
-    const savedApplications = localStorage.getItem("wowcap_applications")
+    const savedApplications = localStorage.getItem("meritcap_applications")
     if (savedApplications) {
       const applications = JSON.parse(savedApplications)
       const currentApp = applications.find((app: any) => app.id === params.applicationId)
@@ -314,7 +314,7 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
     setDocuments(allDocs)
 
     // Load existing shared documents
-    const savedShared = localStorage.getItem("wowcap_shared_documents")
+    const savedShared = localStorage.getItem("meritcap_shared_documents")
     if (savedShared) {
       const shared = JSON.parse(savedShared)
       setSharedDocuments(shared)
@@ -477,10 +477,10 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
               category: doc.category,
             }
 
-            const existingShared = JSON.parse(localStorage.getItem("wowcap_shared_documents") || "[]")
+            const existingShared = JSON.parse(localStorage.getItem("meritcap_shared_documents") || "[]")
             const updatedShared = existingShared.filter((s: any) => s.id !== doc.id)
             updatedShared.push(sharedDoc)
-            localStorage.setItem("wowcap_shared_documents", JSON.stringify(updatedShared))
+            localStorage.setItem("meritcap_shared_documents", JSON.stringify(updatedShared))
             setSharedDocuments(updatedShared)
           }
 
@@ -521,9 +521,9 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
           if (doc.id === docId) {
             // Remove from shared storage if applicable
             if (doc.isShared) {
-              const existingShared = JSON.parse(localStorage.getItem("wowcap_shared_documents") || "[]")
+              const existingShared = JSON.parse(localStorage.getItem("meritcap_shared_documents") || "[]")
               const updatedShared = existingShared.filter((s: any) => s.id !== docId)
-              localStorage.setItem("wowcap_shared_documents", JSON.stringify(updatedShared))
+              localStorage.setItem("meritcap_shared_documents", JSON.stringify(updatedShared))
               setSharedDocuments(updatedShared)
             }
 
@@ -654,12 +654,12 @@ export default function DocumentUploadPage({ params }: { params: { applicationId
 
       if (!userData) {
         // Fallback to unencrypted
-        const userDataString = localStorage.getItem("wowcap_user")
+        const userDataString = localStorage.getItem("meritcap_user")
         userData = userDataString ? JSON.parse(userDataString) : {}
       }
 
       userData.documentVaultSetup = true
-      const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+      const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
       setEncryptedUser(userData, !rememberMe)
 
       router.push("/dashboard?tab=overview&vault-setup=complete")

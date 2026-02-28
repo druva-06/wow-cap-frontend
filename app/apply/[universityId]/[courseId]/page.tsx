@@ -257,9 +257,9 @@ export default function ApplicationPage({ params }: { params: { universityId: st
       }
 
       // Save to localStorage for future use
-      localStorage.setItem("wowcap_application_data", JSON.stringify(applicationData))
+      localStorage.setItem("meritcap_application_data", JSON.stringify(applicationData))
       localStorage.setItem(
-        "wowcap_user",
+        "meritcap_user",
         JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -315,12 +315,12 @@ export default function ApplicationPage({ params }: { params: { universityId: st
 
         // Fallback to unencrypted sources
         if (!parsedUser) {
-          const user = localStorage.getItem("wowcap_user")
+          const user = localStorage.getItem("meritcap_user")
           parsedUser = user ? JSON.parse(user) : null
         }
 
-        const leadData = localStorage.getItem("wowcap_lead_data")
-        const applicationData = localStorage.getItem("wowcap_application_data")
+        const leadData = localStorage.getItem("meritcap_lead_data")
+        const applicationData = localStorage.getItem("meritcap_application_data")
 
         if (parsedUser || leadData || applicationData) {
           const parsedLeadData = leadData ? JSON.parse(leadData) : null

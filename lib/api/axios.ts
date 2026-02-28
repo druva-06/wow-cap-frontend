@@ -41,15 +41,15 @@ function handleAuthFailure(message = "Session expired") {
   try {
     clearTokens()
     if (typeof window !== "undefined") {
-      // Remove stored user/profile + any wowcap_* keys (localStorage & sessionStorage)
+      // Remove stored user/profile + any meritcap_* keys (localStorage & sessionStorage)
       try {
         const purge = (storage: Storage) => {
           const keys: string[] = []
           for (let i = 0; i < storage.length; i++) {
             const key = storage.key(i)
             if (!key) continue
-            if (key.startsWith("wowcap_")) keys.push(key)
-            if (key === "wowcap_user") keys.push(key)
+            if (key.startsWith("meritcap_")) keys.push(key)
+            if (key === "meritcap_user") keys.push(key)
           }
           keys.forEach((k) => storage.removeItem(k))
         }
@@ -104,7 +104,7 @@ instance.interceptors.response.use(
             
             // Fallback to unencrypted
             if (!parsed) {
-              const raw = localStorage.getItem("wowcap_user")
+              const raw = localStorage.getItem("meritcap_user")
               if (raw) {
                 parsed = JSON.parse(raw)
               }
@@ -143,7 +143,7 @@ instance.interceptors.response.use(
             const newAccess = resp?.data?.response?.access_token
             if (newAccess) {
               try {
-                saveToken(newAccess, !!localStorage.getItem("wowcap_refresh_token"))
+                saveToken(newAccess, !!localStorage.getItem("meritcap_refresh_token"))
               } catch {}
               processRefreshQueue(null, newAccess)
               if (originalRequest.headers) originalRequest.headers["Authorization"] = `Bearer ${newAccess}`

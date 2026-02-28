@@ -25,7 +25,7 @@ export default function AgentLoginPage() {
 
     setTimeout(() => {
       localStorage.setItem(
-        "wowcap_agent",
+        "meritcap_agent",
         JSON.stringify({
           email: formData.email,
           name: formData.email.split("@")[0],

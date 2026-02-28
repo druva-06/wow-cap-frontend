@@ -90,7 +90,7 @@ export default function StoriesPage() {
       id: 7,
       title: "The Evolution of Data Science: From Statistics to AI",
       excerpt: "Tracing the journey of Data Science from its statistical roots to modern AI applications",
-      author: "WowCap Research Team",
+      author: "MeritCap Research Team",
       authorImage: "/placeholder.svg?height=40&width=40",
       date: "Dec 1, 2024",
       readTime: "12 min read",

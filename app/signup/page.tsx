@@ -134,7 +134,7 @@ export default function SignupPage() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-2">
                 Account Created Successfully! 🎉
               </h1>
-              <p className="text-gray-600">Welcome to WowCap, {`${formData.firstName} ${formData.lastName}`}!</p>
+              <p className="text-gray-600">Welcome to MeritCap, {`${formData.firstName} ${formData.lastName}`}!</p>
             </div>
 
             {/* Document Vault Encouragement */}
@@ -234,7 +234,7 @@ export default function SignupPage() {
               <User className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Join WowCap
+              Join MeritCap
             </h1>
             <p className="text-gray-600 mt-2">Create your free account today</p>
           </div>

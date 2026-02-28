@@ -93,15 +93,15 @@ function SearchResultsContent() {
 
     if (!parsedUser) {
       // Fallback to unencrypted
-      const userString = localStorage.getItem("wowcap_user") || sessionStorage.getItem("wowcap_user")
+      const userString = localStorage.getItem("meritcap_user") || sessionStorage.getItem("meritcap_user")
       if (userString) {
         try {
           parsedUser = JSON.parse(userString)
         } catch (error) {
           console.error("[v0] SearchResults: Error parsing user data", error)
           removeEncryptedUser()
-          localStorage.removeItem("wowcap_user")
-          sessionStorage.removeItem("wowcap_user")
+          localStorage.removeItem("meritcap_user")
+          sessionStorage.removeItem("meritcap_user")
           setAuthLoading(false)
           setShowLoginModal(true)
           return
@@ -120,33 +120,33 @@ function SearchResultsContent() {
       console.log("[v0] SearchResults: No user found, showing login modal")
     }
 
-    const savedFavorites = localStorage.getItem("wowcap_favorites")
+    const savedFavorites = localStorage.getItem("meritcap_favorites")
     if (savedFavorites) {
       try {
         setFavorites(JSON.parse(savedFavorites))
       } catch (error) {
         console.error("[v0] SearchResults: Error parsing favorites", error)
-        localStorage.removeItem("wowcap_favorites")
+        localStorage.removeItem("meritcap_favorites")
       }
     }
 
-    const savedComparison = localStorage.getItem("wowcap_comparison")
+    const savedComparison = localStorage.getItem("meritcap_comparison")
     if (savedComparison) {
       try {
         setComparisonList(JSON.parse(savedComparison))
       } catch (error) {
         console.error("[v0] SearchResults: Error parsing comparison list", error)
-        localStorage.removeItem("wowcap_comparison")
+        localStorage.removeItem("meritcap_comparison")
       }
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem("wowcap_favorites", JSON.stringify(favorites))
+    localStorage.setItem("meritcap_favorites", JSON.stringify(favorites))
   }, [favorites])
 
   useEffect(() => {
-    localStorage.setItem("wowcap_comparison", JSON.stringify(comparisonList))
+    localStorage.setItem("meritcap_comparison", JSON.stringify(comparisonList))
   }, [comparisonList])
 
   // Helpers: normalize levels, countries and duration
@@ -218,7 +218,7 @@ function SearchResultsContent() {
     // On initial mount, if we have cached backend results from the home page
     // use them directly to avoid an immediate duplicate API call.
     try {
-      const cached = localStorage.getItem("wowcap_search_results")
+      const cached = localStorage.getItem("meritcap_search_results")
       if (cached && !apiCourses) {
         const parsed = JSON.parse(cached)
         if (parsed && Array.isArray(parsed.data)) {
@@ -267,7 +267,7 @@ function SearchResultsContent() {
     setShowLoginModal(false)
 
     // Store encrypted user data
-    const rememberMe = localStorage.getItem("wowcap_remember_me") === "true"
+    const rememberMe = localStorage.getItem("meritcap_remember_me") === "true"
     setEncryptedUser(newUserData, !rememberMe)
 
     window.dispatchEvent(new Event("authStateChanged"))
@@ -413,7 +413,7 @@ function SearchResultsContent() {
       setApiCourses(dataArray)
       try {
         const storeObj = { data: dataArray, pagination }
-        localStorage.setItem("wowcap_search_results", JSON.stringify(storeObj))
+        localStorage.setItem("meritcap_search_results", JSON.stringify(storeObj))
       } catch (e) {
         // ignore storage errors
       }
@@ -514,7 +514,7 @@ function SearchResultsContent() {
       // If study-abroad, prefer backend results saved in localStorage
       if (vertical === "study-abroad") {
         try {
-          const backend = localStorage.getItem("wowcap_search_results")
+          const backend = localStorage.getItem("meritcap_search_results")
           if (backend) {
             const parsed = JSON.parse(backend)
             if (parsed && Array.isArray(parsed.data)) {

@@ -36,7 +36,7 @@ export default function CounselorLogin() {
         success_rate: 92,
       }
 
-      localStorage.setItem("wowcap_counselor", JSON.stringify(counselorData))
+      localStorage.setItem("meritcap_counselor", JSON.stringify(counselorData))
       setIsLoading(false)
       router.push("/counselor/dashboard")
     }, 1500)
@@ -51,7 +51,7 @@ export default function CounselorLogin() {
             <Link href="/" className="flex items-center space-x-2">
               <div className="text-3xl">🎓</div>
               <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                WowCap
+                MeritCap
               </div>
             </Link>
             <div className="flex items-center space-x-2">

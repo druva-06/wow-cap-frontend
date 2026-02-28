@@ -109,7 +109,7 @@ export default function AdminDashboard() {
             <Shield className="w-8 h-8 text-white" />
             <div>
               <h1 className="text-xl font-bold">Admin Portal</h1>
-              <p className="text-red-100 text-sm">WowCap Management</p>
+              <p className="text-red-100 text-sm">MeritCap Management</p>
             </div>
           </div>
           <Button

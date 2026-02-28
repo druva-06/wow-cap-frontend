@@ -560,12 +560,12 @@ export default function HomePage() {
 
                             // Fallback to unencrypted
                             if (!hasUser) {
-                              const userString = localStorage.getItem('wowcap_user') || sessionStorage.getItem('wowcap_user')
+                              const userString = localStorage.getItem('meritcap_user') || sessionStorage.getItem('meritcap_user')
                               hasUser = !!userString
                             }
                           }
 
-                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('wowcap_access_token') || sessionStorage.getItem('wowcap_access_token')) : null
+                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('meritcap_access_token') || sessionStorage.getItem('meritcap_access_token')) : null
                           if (!hasUser && !token) {
                             // not logged in -> redirect to login page
                             router.push('/login')
@@ -656,7 +656,7 @@ export default function HomePage() {
 
                           if (res && res.response && Array.isArray(res.response.data)) {
                             try {
-                              localStorage.setItem('wowcap_search_results', JSON.stringify(res.response))
+                              localStorage.setItem('meritcap_search_results', JSON.stringify(res.response))
                             } catch (e) {
                               // fallback: ignore storage errors
                             }
@@ -812,7 +812,7 @@ export default function HomePage() {
               </div>
               <button
                 onClick={() => {
-                  window.open("https://calendly.com/wowcap-counseling/30min", "_blank")
+                  window.open("https://calendly.com/meritcap-counseling/30min", "_blank")
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-medium transition-colors duration-300 w-full"
               >
