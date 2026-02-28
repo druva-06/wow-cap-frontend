@@ -28,7 +28,7 @@ export default function CounselorLogin() {
       const counselorData = {
         id: "counselor_001",
         name: "Dr. Sarah Johnson",
-        email: email || "sarah.johnson@wowcap.com",
+        email: email || "sarah.johnson@meritcap.com",
         role: "Senior Counselor",
         specialization: "Study Abroad",
         experience: "8 years",
@@ -153,7 +153,7 @@ export default function CounselorLogin() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="counselor@wowcap.com"
+                      placeholder="counselor@meritcap.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-12 text-base"

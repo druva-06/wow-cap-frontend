@@ -709,7 +709,7 @@ export default function StudyMBBSPage() {
               </div>
               <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                 <Mail className="w-3 h-3" />
-                <span>mbbs@wowcap.com</span>
+                <span>mbbs@meritcap.com</span>
               </div>
             </div>
           </CardContent>

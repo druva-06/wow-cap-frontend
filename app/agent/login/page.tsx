@@ -44,7 +44,7 @@ export default function AgentLoginPage() {
 
   const demoLogin = () => {
     setFormData({
-      email: "agent@wowcap.com",
+      email: "agent@meritcap.com",
       password: "agent123",
     })
   }
@@ -123,7 +123,7 @@ export default function AgentLoginPage() {
               >
                 Use Demo Agent Credentials
               </Button>
-              <p className="text-xs text-gray-400 mt-2">Email: agent@wowcap.com | Password: agent123</p>
+              <p className="text-xs text-gray-400 mt-2">Email: agent@meritcap.com | Password: agent123</p>
             </div>
           </div>
         </CardContent>

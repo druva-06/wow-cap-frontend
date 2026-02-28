@@ -219,7 +219,7 @@ export function Footer() {
               <Mail className="w-5 h-5 text-blue-400 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Email</p>
-                <p className="text-sm text-gray-400">support@wowcap.com</p>
+                <p className="text-sm text-gray-400">support@meritcap.com</p>
               </div>
             </div>
             <div className="flex items-center justify-center md:justify-start space-x-3">

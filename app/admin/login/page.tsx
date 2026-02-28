@@ -154,7 +154,7 @@ export default function AdminLoginPage() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="admin@wowcap.com"
+                      placeholder="admin@meritcap.com"
                       required
                       className="h-12 text-base"
                     />
@@ -218,7 +218,7 @@ export default function AdminLoginPage() {
                 <h3 className="font-semibold text-red-800 mb-4 text-center">Demo Credentials</h3>
                 <div className="space-y-3">
                   <Button
-                    onClick={() => handleDemoLogin("admin@wowcap.com", "admin123", "Super Admin")}
+                    onClick={() => handleDemoLogin("admin@meritcap.com", "admin123", "Super Admin")}
                     variant="outline"
                     className="w-full justify-start text-left border-red-200 hover:bg-red-100"
                   >
@@ -228,13 +228,13 @@ export default function AdminLoginPage() {
                       </div>
                       <div>
                         <div className="font-medium text-red-800">Super Admin</div>
-                        <div className="text-sm text-red-600">admin@wowcap.com</div>
+                        <div className="text-sm text-red-600">admin@meritcap.com</div>
                       </div>
                     </div>
                   </Button>
 
                   <Button
-                    onClick={() => handleDemoLogin("manager@wowcap.com", "manager123", "Branch Manager")}
+                    onClick={() => handleDemoLogin("manager@meritcap.com", "manager123", "Branch Manager")}
                     variant="outline"
                     className="w-full justify-start text-left border-red-200 hover:bg-red-100"
                   >
@@ -244,13 +244,13 @@ export default function AdminLoginPage() {
                       </div>
                       <div>
                         <div className="font-medium text-red-800">Branch Manager</div>
-                        <div className="text-sm text-red-600">manager@wowcap.com</div>
+                        <div className="text-sm text-red-600">manager@meritcap.com</div>
                       </div>
                     </div>
                   </Button>
 
                   <Button
-                    onClick={() => handleDemoLogin("hr@wowcap.com", "hr123", "HR Manager")}
+                    onClick={() => handleDemoLogin("hr@meritcap.com", "hr123", "HR Manager")}
                     variant="outline"
                     className="w-full justify-start text-left border-red-200 hover:bg-red-100"
                   >
@@ -260,7 +260,7 @@ export default function AdminLoginPage() {
                       </div>
                       <div>
                         <div className="font-medium text-red-800">HR Manager</div>
-                        <div className="text-sm text-red-600">hr@wowcap.com</div>
+                        <div className="text-sm text-red-600">hr@meritcap.com</div>
                       </div>
                     </div>
                   </Button>

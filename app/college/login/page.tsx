@@ -66,7 +66,7 @@ export default function CollegeLoginPage() {
 
   const demoLogin = () => {
     setFormData({
-      email: "college@wowcap.com",
+      email: "college@meritcap.com",
       password: "college123",
     })
   }

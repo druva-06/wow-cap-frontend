@@ -22,7 +22,7 @@ jobs:
         id: env
         run: |
           echo "env=prod" >> $GITHUB_OUTPUT
-          echo "api_url=https://api.wowcap.com" >> $GITHUB_OUTPUT
+          echo "api_url=https://api.meritcap.com" >> $GITHUB_OUTPUT
           echo "vps_host=${{ secrets.PROD_VPS_HOST }}" >> $GITHUB_OUTPUT
           echo "namespace=prod" >> $GITHUB_OUTPUT
 

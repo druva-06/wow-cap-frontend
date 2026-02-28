@@ -570,7 +570,7 @@ export default function EducationLoanPage() {
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600 mb-2">
                     <Mail className="w-4 h-4" />
-                    <span>loans@wowcap.com</span>
+                    <span>loans@meritcap.com</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-gray-600">
                     <MapPin className="w-4 h-4" />

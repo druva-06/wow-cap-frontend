@@ -20,7 +20,7 @@ export default function PortalsPage() {
       dashboardUrl: "/admin/dashboard",
       features: ["User Management", "System Analytics", "Content Management", "Security Settings"],
       credentials: {
-        email: "admin@wowcap.com",
+        email: "admin@meritcap.com",
         password: "admin123",
       },
     },
@@ -38,7 +38,7 @@ export default function PortalsPage() {
       dashboardUrl: "/counselor/dashboard",
       features: ["Student Sessions", "Appointment Management", "Progress Tracking", "Reports"],
       credentials: {
-        email: "counselor@wowcap.com",
+        email: "counselor@meritcap.com",
         password: "counselor123",
       },
     },
@@ -56,7 +56,7 @@ export default function PortalsPage() {
       dashboardUrl: "/college/dashboard",
       features: ["Course Management", "Application Review", "Student Enrollment", "Analytics"],
       credentials: {
-        email: "college@wowcap.com",
+        email: "college@meritcap.com",
         password: "college123",
       },
     },
@@ -74,7 +74,7 @@ export default function PortalsPage() {
       dashboardUrl: "/agent/dashboard",
       features: ["Lead Management", "Commission Tracking", "Partner Resources", "Performance"],
       credentials: {
-        email: "agent@wowcap.com",
+        email: "agent@meritcap.com",
         password: "agent123",
       },
     },
@@ -92,7 +92,7 @@ export default function PortalsPage() {
       dashboardUrl: "/dashboard",
       features: ["Course Progress", "Applications", "Documents", "Community"],
       credentials: {
-        email: "demo@wowcap.com",
+        email: "demo@meritcap.com",
         password: "demo123",
       },
     },

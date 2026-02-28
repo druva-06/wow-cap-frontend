@@ -812,7 +812,7 @@ export default function EngineeringCoursePage() {
                 <h3 className="text-xl font-bold mb-3 text-gray-900">Engineering Email</h3>
                 <p className="text-gray-600 mb-6">Detailed engineering college guidance</p>
                 <Button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3">
-                  engineering@wowcap.com
+                  engineering@meritcap.com
                 </Button>
               </CardContent>
             </Card>
